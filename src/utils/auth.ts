@@ -32,30 +32,47 @@ export const initialAuthState: AuthState = {
 // Initialize auth from storage
 export const initializeAuth = (): AuthState => {
   if (!CLIENT_ID) {
+    console.warn('Missing Meetup Client ID');
     return {
       ...initialAuthState,
       error: 'Missing Meetup Client ID. Please check your environment configuration.',
     };
   }
 
-  const storedAuth = localStorage.getItem(STORAGE_KEY);
-  if (storedAuth) {
-    try {
-      const parsedAuth = JSON.parse(storedAuth) as AuthState;
-      // Check if token is still valid (simple check)
-      if (parsedAuth.accessToken) {
-        return parsedAuth;
-      }
-    } catch (e) {
-      console.error('Failed to parse stored auth', e);
+  try {
+    const storedAuth = localStorage.getItem(STORAGE_KEY);
+    if (!storedAuth) {
+      return initialAuthState;
     }
+
+    const parsedAuth = JSON.parse(storedAuth) as AuthState;
+    // Check if token exists and auth state is valid
+    if (parsedAuth && parsedAuth.accessToken && parsedAuth.isAuthenticated) {
+      return parsedAuth;
+    }
+
+    // If invalid auth state, clear storage and return initial state
+    clearAuth();
+    return initialAuthState;
+  } catch (e) {
+    console.error('Failed to parse stored auth', e);
+    // Clear potentially corrupted auth data
+    clearAuth();
+    return initialAuthState;
   }
-  return initialAuthState;
 };
 
-// Save auth to storage
+// Save auth to storage with validation
 export const saveAuth = (auth: AuthState): void => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(auth));
+  if (!auth || !auth.accessToken) {
+    console.warn('Attempting to save invalid auth state');
+    return;
+  }
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(auth));
+  } catch (e) {
+    console.error('Failed to save auth state', e);
+  }
 };
 
 // Clear auth from storage
@@ -83,43 +100,59 @@ export const loginWithMeetup = (): void => {
   window.location.href = authUrl;
 };
 
-// Handle auth callback
+// Handle auth callback with improved error handling
 export const handleAuthCallback = (): AuthState | null => {
   if (!CLIENT_ID) {
+    console.warn('Missing Meetup Client ID');
     return {
       ...initialAuthState,
       error: 'Missing Meetup Client ID. Please check your environment configuration.',
     };
   }
 
-  console.log('Handling auth callback:', { 
-    hash: window.location.hash,
-    pathname: window.location.pathname,
-    href: window.location.href
-  });
+  try {
+    console.log('Handling auth callback:', { 
+      hash: window.location.hash,
+      pathname: window.location.pathname,
+      href: window.location.href
+    });
 
-  const hash = window.location.hash;
-  if (!hash || !hash.includes('access_token')) return null;
+    const hash = window.location.hash;
+    if (!hash || !hash.includes('access_token')) {
+      return null;
+    }
 
-  const params = new URLSearchParams(hash.substring(1));
-  const accessToken = params.get('access_token');
-  
-  if (!accessToken) return null;
+    const params = new URLSearchParams(hash.substring(1));
+    const accessToken = params.get('access_token');
+    
+    if (!accessToken) {
+      console.warn('No access token found in callback');
+      return null;
+    }
 
-  // Clear hash from URL but maintain the base path
-  window.history.replaceState(null, '', isDevelopment ? '/' : APP_PATH);
-  
-  const authState = {
-    isAuthenticated: true,
-    accessToken,
-    user: null,
-    error: null,
-  };
+    // Clear hash from URL but maintain the base path
+    window.history.replaceState(null, '', isDevelopment ? '/' : APP_PATH);
+    
+    const authState: AuthState = {
+      isAuthenticated: true,
+      accessToken,
+      user: null,
+      error: null,
+    };
 
-  // Debug log
-  console.log('Auth successful:', { isAuthenticated: true, hasToken: !!accessToken });
+    // Save the auth state immediately
+    saveAuth(authState);
 
-  return authState;
+    console.log('Auth successful:', { isAuthenticated: true, hasToken: !!accessToken });
+
+    return authState;
+  } catch (error) {
+    console.error('Error handling auth callback:', error);
+    return {
+      ...initialAuthState,
+      error: 'Failed to process authentication. Please try again.',
+    };
+  }
 };
 
 const GET_USER_PROFILE = gql`

@@ -23,29 +23,57 @@ function App() {
 
   // Handle auth callback
   useEffect(() => {
-    const callbackAuth = handleAuthCallback();
-    if (callbackAuth) {
-      setAuth(callbackAuth);
-      saveAuth(callbackAuth);
+    try {
+      const callbackAuth = handleAuthCallback();
+      if (callbackAuth) {
+        setAuth(callbackAuth);
+      }
+    } catch (error) {
+      console.error('Error in auth callback:', error);
+      setAuth(prev => ({
+        ...prev,
+        error: 'Authentication failed. Please try again.',
+      }));
     }
   }, []);
 
   // Fetch user profile if authenticated but no user data
   useEffect(() => {
     const loadUserProfile = async () => {
-      if (auth.isAuthenticated && auth.accessToken && !auth.user) {
-        const updatedAuth = await fetchUserProfile(auth.accessToken);
-        setAuth(updatedAuth);
-        saveAuth(updatedAuth);
+      if (!auth?.isAuthenticated || !auth?.accessToken || auth?.user) {
+        return;
+      }
+
+      try {
+        const user = await fetchUserProfile(auth.accessToken);
+        if (user) {
+          const updatedAuth = {
+            ...auth,
+            user,
+          };
+          setAuth(updatedAuth);
+          saveAuth(updatedAuth);
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        setAuth(prev => ({
+          ...prev,
+          error: 'Failed to load user profile. Please try logging in again.',
+        }));
       }
     };
 
     loadUserProfile();
-  }, [auth.isAuthenticated, auth.accessToken, auth.user]);
+  }, [auth?.isAuthenticated, auth?.accessToken, auth?.user]);
 
   // Update step based on auth state
   useEffect(() => {
-    if (auth.isAuthenticated) {
+    if (!auth) {
+      setAppState(prev => ({ ...prev, step: 'login' }));
+      return;
+    }
+
+    if (auth.isAuthenticated && auth.accessToken) {
       setAppState(prev => ({
         ...prev,
         step: prev.step === 'login' ? 'events' : prev.step,
@@ -56,7 +84,7 @@ function App() {
         step: 'login',
       }));
     }
-  }, [auth.isAuthenticated]);
+  }, [auth?.isAuthenticated, auth?.accessToken]);
 
   const handleLogout = () => {
     setAuth(logout());
