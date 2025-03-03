@@ -2,7 +2,7 @@ import { AuthState } from '../types';
 
 // Constants
 const MEETUP_API_URL = 'https://api.meetup.com';
-const REDIRECT_URI = window.location.origin + window.location.pathname;
+const REDIRECT_URI = 'https://yashrajnayak.github.io/meetup';
 const STORAGE_KEY = 'meetup_auth';
 
 // Get client ID from environment variables
