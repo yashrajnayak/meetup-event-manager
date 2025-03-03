@@ -17,16 +17,10 @@ export default defineConfig(({ mode }: ConfigEnv) => {
     build: {
       outDir: 'dist',
       sourcemap: true,
-      assetsDir: 'assets',
       rollupOptions: {
         output: {
           manualChunks: undefined,
-          assetFileNames: (assetInfo) => {
-            if (assetInfo.name === 'vite.svg') {
-              return 'assets/[name][extname]';
-            }
-            return 'assets/[name].[hash][extname]';
-          },
+          assetFileNames: 'assets/[name].[hash].[ext]',
           chunkFileNames: 'assets/[name].[hash].js',
           entryFileNames: 'assets/[name].[hash].js',
         },
