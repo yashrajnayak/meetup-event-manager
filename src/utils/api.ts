@@ -19,8 +19,7 @@ const processEventData = (event: any): MeetupEvent => ({
   venue: event.venue,
   group: {
     ...event.group,
-    membershipCount: event.group.memberships?.totalCount || 0,
-    photo: event.group.logo
+    membershipCount: event.group.memberships?.totalCount || 0
   },
   going: event.going?.totalCount || 0,
   waitlist: event.waiting?.totalCount || 0,
@@ -125,7 +124,7 @@ export const checkMemberStatus = async (
 export const getMemberDetails = async (
   accessToken: string,
   memberId: string
-): Promise<{ name: string; photo?: string } | null> => {
+): Promise<{ name: string; } | null> => {
   try {
     const response = await fetch(`https://api.meetup.com/members/${memberId}`, {
       headers: {
@@ -140,8 +139,7 @@ export const getMemberDetails = async (
     const member = await response.json();
     
     return {
-      name: member.name,
-      photo: member.photoUrl,
+      name: member.name
     };
   } catch (error) {
     console.error('Error fetching member details:', error);
@@ -169,8 +167,7 @@ export const changeRsvpStatus = async (
       variables: {
         input: {
           eventId,
-          memberId,
-          status: 'going',
+          response: 'YES'
         },
       },
       context: {
@@ -180,8 +177,8 @@ export const changeRsvpStatus = async (
       }
     });
 
-    if (data.updateMemberStatus.errors?.length > 0) {
-      console.error('Errors updating member status:', data.updateMemberStatus.errors);
+    if (data.rsvp.errors?.length > 0) {
+      console.error('Errors updating member status:', data.rsvp.errors);
       if (onProgress) {
         onProgress({
           current: 1,

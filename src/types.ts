@@ -15,7 +15,6 @@ export interface MeetupUser {
   name: string;
   email?: string;
   bio?: string;
-  photoUrl?: string;
   isProMember?: boolean;
   isOrganizer?: boolean;
 }
@@ -40,11 +39,6 @@ export interface MeetupGroup {
   link: string;
   status: string;
   membershipCount: number;
-  logo?: {
-    id: string;
-    baseUrl: string;
-    preview?: string;
-  };
 }
 
 export interface MeetupEvent {
@@ -64,7 +58,6 @@ export interface MeetupEvent {
   images?: Array<{
     id: string;
     baseUrl: string;
-    preview?: string;
   }>;
 }
 
@@ -72,7 +65,6 @@ export interface MeetupMember {
   id: string;
   name: string;
   profileUrl: string;
-  photoUrl?: string;
   status: 'going' | 'waitlist' | 'not_found';
   joinedAt?: string;
   role?: 'MEMBER' | 'ORGANIZER' | 'CO_ORGANIZER' | 'EVENT_ORGANIZER';

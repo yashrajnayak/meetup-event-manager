@@ -7,8 +7,8 @@ export const USER_FIELDS = gql`
     name
     email
     bio
-    photoUrl
     isProMember
+    isOrganizer
   }
 `;
 
@@ -42,11 +42,6 @@ export const EVENT_FIELDS = gql`
       memberships {
         totalCount
       }
-      logo {
-        id
-        baseUrl
-        preview
-      }
     }
     going {
       totalCount
@@ -59,7 +54,6 @@ export const EVENT_FIELDS = gql`
     images {
       id
       baseUrl
-      preview
     }
   }
 `;
@@ -69,7 +63,6 @@ export const MEMBER_FIELDS = gql`
     id
     name
     profileUrl
-    photoUrl
     joinedAt
     role
   }
@@ -160,8 +153,8 @@ export const GET_EVENT_WAITLIST = gql`
 
 // Mutations
 export const UPDATE_MEMBER_STATUS = gql`
-  mutation UpdateMemberStatus($input: UpdateMemberStatusInput!) {
-    updateMemberStatus(input: $input) {
+  mutation UpdateMemberStatus($input: RsvpInput!) {
+    rsvp(input: $input) {
       member {
         ...MemberFields
         status
@@ -178,9 +171,9 @@ export const UPDATE_MEMBER_STATUS = gql`
 
 // Bulk update mutation
 export const BULK_UPDATE_MEMBER_STATUS = gql`
-  mutation BulkUpdateMemberStatus($input: BulkUpdateMemberStatusInput!) {
-    bulkUpdateMemberStatus(input: $input) {
-      members {
+  mutation BulkUpdateMemberStatus($input: RsvpInput!) {
+    rsvp(input: $input) {
+      member {
         ...MemberFields
         status
       }
@@ -188,7 +181,6 @@ export const BULK_UPDATE_MEMBER_STATUS = gql`
         message
         code
         field
-        memberId
       }
     }
   }
