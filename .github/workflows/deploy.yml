@@ -25,8 +25,19 @@ jobs:
           npm install
           npm ci --prefer-offline
 
+      - name: Verify Environment
+        run: |
+          echo "Node version: $(node -v)"
+          echo "NPM version: $(npm -v)"
+          echo "VITE_MEETUP_CLIENT_ID exists: $([[ -n $VITE_MEETUP_CLIENT_ID ]] && echo 'yes' || echo 'no')"
+        env:
+          VITE_MEETUP_CLIENT_ID: ${{ secrets.VITE_MEETUP_CLIENT_ID }}
+
       - name: Build
-        run: npm run build
+        run: |
+          npm run build
+          echo "Build completed"
+          ls -la dist/
         env:
           VITE_MEETUP_CLIENT_ID: ${{ secrets.VITE_MEETUP_CLIENT_ID }}
 
@@ -35,3 +46,12 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
+          cname: ${{ github.repository_owner }}.github.io
+          enable_jekyll: false
+          force_orphan: true
+          commit_message: "Deploy to GitHub Pages"
+
+      - name: Verify Deployment
+        run: |
+          echo "Deployed to https://${{ github.repository_owner }}.github.io/meetup"
+          echo "Please verify the deployment manually"
