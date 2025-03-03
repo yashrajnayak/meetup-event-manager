@@ -1,5 +1,5 @@
 import { AuthState } from '../types';
-import { getHealthyProxy, markProxyUnhealthy } from './proxy-config';
+import { getHealthyProxy, getProxyConfig, markProxyUnhealthy } from './proxy-config';
 
 // Constants
 const isDevelopment = import.meta.env.MODE === 'development';
@@ -135,6 +135,9 @@ export const fetchUserProfile = async (accessToken: string): Promise<AuthState> 
 
   while ((proxyUrl = await getHealthyProxy())) {
     try {
+      const proxyConfig = getProxyConfig(proxyUrl);
+      if (!proxyConfig) continue;
+
       const response = await fetch(`${proxyUrl}/members/self`, {
         method: 'GET',
         headers: {
@@ -143,7 +146,7 @@ export const fetchUserProfile = async (accessToken: string): Promise<AuthState> 
           'Accept': 'application/json'
         },
         mode: 'cors',
-        credentials: 'include'
+        credentials: proxyConfig.requiresCredentials ? 'include' : 'omit'
       });
 
       if (!response.ok) {

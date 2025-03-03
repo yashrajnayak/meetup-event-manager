@@ -12,11 +12,16 @@ import {
 // Create Apollo Client instance
 let apolloClient: ApolloClient<any> | null = null;
 
-const getClient = (accessToken: string) => {
+const getClient = async (accessToken: string) => {
   if (!apolloClient) {
-    apolloClient = createApolloClient(accessToken);
+    apolloClient = await createApolloClient(accessToken);
   }
   return apolloClient;
+};
+
+// Reset client (useful when changing proxies)
+export const resetClient = () => {
+  apolloClient = null;
 };
 
 // Helper function to process event data
@@ -51,7 +56,7 @@ const processMemberData = (member: any): MeetupMember => ({
 // Fetch events organized by the user
 export const fetchOrganizedEvents = async (accessToken: string): Promise<MeetupEvent[]> => {
   try {
-    const client = getClient(accessToken);
+    const client = await getClient(accessToken);
     const { data } = await client.query({
       query: GET_ORGANIZED_EVENTS,
       variables: {
@@ -66,6 +71,10 @@ export const fetchOrganizedEvents = async (accessToken: string): Promise<MeetupE
     return events;
   } catch (error) {
     console.error('Error fetching events:', error);
+    // If there's a client error, reset the client to try a different proxy next time
+    if (error instanceof Error && error.message.includes('No healthy proxy available')) {
+      resetClient();
+    }
     return [];
   }
 };
@@ -84,7 +93,7 @@ export const checkMemberStatus = async (
   memberId: string
 ): Promise<'going' | 'waitlist' | 'not_found'> => {
   try {
-    const client = getClient(accessToken);
+    const client = await getClient(accessToken);
 
     // Check waitlist
     const waitlistResult = await client.query({
@@ -166,7 +175,7 @@ export const changeRsvpStatus = async (
   onProgress?: (progress: BulkOperationProgress) => void
 ): Promise<boolean> => {
   try {
-    const client = getClient(accessToken);
+    const client = await getClient(accessToken);
     const { data } = await client.mutate({
       mutation: UPDATE_MEMBER_STATUS,
       variables: {

@@ -1,7 +1,7 @@
 import { ApolloClient, InMemoryCache, createHttpLink, from } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
-import { getHealthyProxy, getGraphQLEndpoint, markProxyUnhealthy } from './proxy-config';
+import { getHealthyProxy, getGraphQLEndpoint, markProxyUnhealthy, getProxyConfig } from './proxy-config';
 
 // Error handling link with proxy fallback
 const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) => {
@@ -39,7 +39,8 @@ const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) 
         if (proxyUrl) {
           // Update the operation with the new proxy
           operation.setContext({
-            uri: getGraphQLEndpoint(proxyUrl)
+            uri: getGraphQLEndpoint(proxyUrl),
+            credentials: getProxyConfig(proxyUrl)?.requiresCredentials ? 'include' : 'omit'
           });
           // Retry the operation
           return forward(operation);
@@ -71,13 +72,18 @@ export const createApolloClient = async (token: string) => {
     throw new Error('No healthy proxy available');
   }
 
+  const proxyConfig = getProxyConfig(proxyUrl);
+  if (!proxyConfig) {
+    throw new Error('Invalid proxy configuration');
+  }
+
   return new ApolloClient({
     link: from([
       errorLink,
       retryLink,
       createHttpLink({
         uri: getGraphQLEndpoint(proxyUrl),
-        credentials: 'include',
+        credentials: proxyConfig.requiresCredentials ? 'include' : 'omit',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
