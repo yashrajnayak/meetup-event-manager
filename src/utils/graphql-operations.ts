@@ -90,7 +90,7 @@ export const GET_ORGANIZED_EVENTS = gql`
     self {
       id
       name
-      memberships(input: { role: "organizer" }) {
+      memberships {
         edges {
           node {
             role
