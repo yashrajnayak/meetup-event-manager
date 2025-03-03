@@ -1,10 +1,9 @@
 import { ApolloClient, InMemoryCache, createHttpLink, from } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
+import { getHealthyProxy, getGraphQLEndpoint, markProxyUnhealthy } from './proxy-config';
 
-const PROXY_URL = 'https://meetup-proxy.oneyashraj.workers.dev/proxy/gql';
-
-// Error handling link
+// Error handling link with proxy fallback
 const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) => {
   if (graphQLErrors) {
     for (const err of graphQLErrors) {
@@ -25,7 +24,29 @@ const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) 
     }
   }
   if (networkError) {
-    console.error(`[Network error]: ${networkError}`);
+    console.error(`[Network error]:`, networkError);
+    
+    // Check if it's a proxy error (status 530)
+    if ('status' in networkError && networkError.status === 530) {
+      const context = operation.getContext();
+      const currentProxy = new URL(context.uri).origin + '/proxy';
+      
+      // Mark the current proxy as unhealthy
+      markProxyUnhealthy(currentProxy);
+      
+      // Try to get a new healthy proxy
+      return getHealthyProxy().then(proxyUrl => {
+        if (proxyUrl) {
+          // Update the operation with the new proxy
+          operation.setContext({
+            uri: getGraphQLEndpoint(proxyUrl)
+          });
+          // Retry the operation
+          return forward(operation);
+        }
+        throw new Error('All proxies failed');
+      });
+    }
   }
 });
 
@@ -43,13 +64,19 @@ const retryLink = new RetryLink({
 });
 
 // Create a function that returns configured client with auth token
-export const createApolloClient = (token: string) => {
+export const createApolloClient = async (token: string) => {
+  // Get initial healthy proxy
+  const proxyUrl = await getHealthyProxy();
+  if (!proxyUrl) {
+    throw new Error('No healthy proxy available');
+  }
+
   return new ApolloClient({
     link: from([
       errorLink,
       retryLink,
       createHttpLink({
-        uri: PROXY_URL,
+        uri: getGraphQLEndpoint(proxyUrl),
         credentials: 'include',
         headers: {
           'Authorization': `Bearer ${token}`,

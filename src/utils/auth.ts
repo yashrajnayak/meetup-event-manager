@@ -1,8 +1,7 @@
 import { AuthState } from '../types';
+import { getHealthyProxy, markProxyUnhealthy } from './proxy-config';
 
 // Constants
-const MEETUP_API_URL = 'https://api.meetup.com';
-const PROXY_URL = 'https://meetup-proxy.oneyashraj.workers.dev/proxy';
 const isDevelopment = import.meta.env.MODE === 'development';
 const BASE_URL = isDevelopment ? 'http://localhost:5174' : 'https://yashrajnayak.github.io';
 const APP_PATH = isDevelopment ? '' : '/meetup';
@@ -122,7 +121,7 @@ export const handleAuthCallback = (): AuthState | null => {
   return authState;
 };
 
-// Fetch user profile
+// Fetch user profile with proxy fallback
 export const fetchUserProfile = async (accessToken: string): Promise<AuthState> => {
   if (!CLIENT_ID) {
     return {
@@ -131,52 +130,70 @@ export const fetchUserProfile = async (accessToken: string): Promise<AuthState> 
     };
   }
 
-  try {
-    const response = await fetch(`${PROXY_URL}/members/self`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      mode: 'cors',
-      credentials: 'include'
-    });
+  let lastError: Error | null = null;
+  let proxyUrl: string | null;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Profile fetch error:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText
+  while ((proxyUrl = await getHealthyProxy())) {
+    try {
+      const response = await fetch(`${proxyUrl}/members/self`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        mode: 'cors',
+        credentials: 'include'
       });
-      throw new Error(`Failed to fetch user profile: ${response.status} ${response.statusText}`);
-    }
 
-    const user = await response.json();
-    
-    return {
-      isAuthenticated: true,
-      accessToken,
-      user: {
-        id: user.id,
-        name: user.name,
-        photo: user.photo ? {
-          id: user.photo.id,
-          baseUrl: user.photo.baseUrl,
-        } : undefined,
-      },
-      error: null,
-    };
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
-    return {
-      isAuthenticated: false,
-      accessToken: null,
-      user: null,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Profile fetch error:', {
+          proxy: proxyUrl,
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+
+        // Mark this proxy as unhealthy if we get a 530 error
+        if (response.status === 530) {
+          markProxyUnhealthy(proxyUrl);
+          continue; // Try the next proxy
+        }
+
+        throw new Error(`Failed to fetch user profile: ${response.status} ${response.statusText}`);
+      }
+
+      const user = await response.json();
+      
+      return {
+        isAuthenticated: true,
+        accessToken,
+        user: {
+          id: user.id,
+          name: user.name,
+          photo: user.photo ? {
+            id: user.photo.id,
+            baseUrl: user.photo.baseUrl,
+          } : undefined,
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error(`Error with proxy ${proxyUrl}:`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
+      markProxyUnhealthy(proxyUrl);
+    }
   }
+
+  // All proxies failed
+  console.error('All proxies failed:', lastError);
+  return {
+    isAuthenticated: false,
+    accessToken: null,
+    user: null,
+    error: lastError?.message || 'All proxies failed',
+  };
 };
 
 // Logout
