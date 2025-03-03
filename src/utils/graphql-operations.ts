@@ -10,16 +10,14 @@ export const USER_FIELDS = gql`
     memberships {
       edges {
         node {
-          membership {
-            role
-            group {
-              id
-              name
-              urlname
-              status
-              memberships {
-                count
-              }
+          role
+          group {
+            id
+            name
+            urlname
+            status
+            memberships {
+              count
             }
           }
         }
@@ -65,9 +63,7 @@ export const MEMBER_FIELDS = gql`
     id
     name
     joinedAt
-    membership {
-      role
-    }
+    role
   }
 `;
 
@@ -82,16 +78,14 @@ export const GET_SELF = gql`
       memberships {
         edges {
           node {
-            membership {
-              role
-              group {
-                id
-                name
-                urlname
-                status
-                memberships {
-                  count
-                }
+            role
+            group {
+              id
+              name
+              urlname
+              status
+              memberships {
+                count
               }
             }
           }
@@ -109,16 +103,14 @@ export const GET_ORGANIZED_EVENTS = gql`
       memberships {
         edges {
           node {
-            membership {
-              role
-              group {
-                id
-                name
-                urlname
-                status
-                memberships {
-                  count
-                }
+            role
+            group {
+              id
+              name
+              urlname
+              status
+              memberships {
+                count
               }
             }
           }
@@ -166,9 +158,7 @@ export const GET_EVENT_MEMBERS = gql`
           node {
             id
             name
-            membership {
-              role
-            }
+            role
             joinedAt
           }
         }
@@ -233,9 +223,7 @@ export const BULK_UPDATE_MEMBER_STATUS = gql`
         id
         name
         joinedAt
-        membership {
-          role
-        }
+        role
       }
       errors {
         message
