@@ -7,27 +7,6 @@ import {
   UPDATE_MEMBER_STATUS
 } from './graphql-operations';
 
-// Helper function to process event data
-const processEventData = (event: any): MeetupEvent => ({
-  id: event.id,
-  title: event.title,
-  description: event.description,
-  dateTime: event.dateTime,
-  duration: event.duration,
-  status: event.status,
-  eventType: event.eventType,
-  venue: event.venue,
-  group: {
-    ...event.group,
-    membershipCount: event.group.memberships?.count || 0
-  },
-  going: event.going || 0,
-  waitlist: event.waiting || 0,
-  maxTickets: event.maxTickets,
-  fee: event.fee?.amount,
-  images: event.images,
-});
-
 interface EventEdge {
   node: MeetupEvent;
 }
