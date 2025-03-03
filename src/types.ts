@@ -15,13 +15,9 @@ export interface MeetupUser {
   name: string;
   email?: string;
   bio?: string;
-  photo?: {
-    id: string;
-    baseUrl: string;
-    preview?: string;
-  };
-  membershipCount?: number;
+  photoUrl?: string;
   isProMember?: boolean;
+  isOrganizer?: boolean;
 }
 
 export interface MeetupVenue {
@@ -44,7 +40,7 @@ export interface MeetupGroup {
   link: string;
   status: string;
   membershipCount: number;
-  photo?: {
+  logo?: {
     id: string;
     baseUrl: string;
     preview?: string;
@@ -64,10 +60,7 @@ export interface MeetupEvent {
   going: number;
   waitlist: number;
   maxTickets?: number;
-  fee?: {
-    amount: number;
-    currency: string;
-  };
+  fee?: number;
   images?: Array<{
     id: string;
     baseUrl: string;
@@ -79,11 +72,7 @@ export interface MeetupMember {
   id: string;
   name: string;
   profileUrl: string;
-  photo?: {
-    id: string;
-    baseUrl: string;
-    preview?: string;
-  };
+  photoUrl?: string;
   status: 'going' | 'waitlist' | 'not_found';
   joinedAt?: string;
   role?: 'MEMBER' | 'ORGANIZER' | 'CO_ORGANIZER' | 'EVENT_ORGANIZER';

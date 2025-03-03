@@ -7,12 +7,7 @@ export const USER_FIELDS = gql`
     name
     email
     bio
-    photo {
-      id
-      baseUrl
-      preview
-    }
-    membershipCount
+    photoUrl
     isProMember
   }
 `;
@@ -44,20 +39,23 @@ export const EVENT_FIELDS = gql`
       description
       link
       status
-      membershipCount
-      photo {
+      memberships {
+        totalCount
+      }
+      logo {
         id
         baseUrl
         preview
       }
     }
-    going
-    waitlist
-    maxTickets
-    fee {
-      amount
-      currency
+    going {
+      totalCount
     }
+    waiting {
+      totalCount
+    }
+    maxTickets
+    fee
     images {
       id
       baseUrl
@@ -71,11 +69,7 @@ export const MEMBER_FIELDS = gql`
     id
     name
     profileUrl
-    photo {
-      id
-      baseUrl
-      preview
-    }
+    photoUrl
     joinedAt
     role
   }
@@ -94,7 +88,8 @@ export const GET_SELF = gql`
 export const GET_ORGANIZED_EVENTS = gql`
   query GetOrganizedEvents($first: Int!, $after: String) {
     self {
-      eventsOrganized(first: $first, after: $after) {
+      isOrganizer
+      organizedEvents(first: $first, after: $after) {
         edges {
           node {
             ...EventFields
@@ -143,7 +138,7 @@ export const GET_EVENT_WAITLIST = gql`
   query GetEventWaitlist($eventId: ID!, $first: Int!, $after: String) {
     event(id: $eventId) {
       id
-      waitlist(first: $first, after: $after) {
+      waiting(first: $first, after: $after) {
         edges {
           node {
             ...MemberFields

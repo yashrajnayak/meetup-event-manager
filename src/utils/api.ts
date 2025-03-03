@@ -17,9 +17,13 @@ const processEventData = (event: any): MeetupEvent => ({
   status: event.status,
   eventType: event.eventType,
   venue: event.venue,
-  group: event.group,
-  going: event.going,
-  waitlist: event.waitlist,
+  group: {
+    ...event.group,
+    membershipCount: event.group.memberships?.totalCount || 0,
+    photo: event.group.logo
+  },
+  going: event.going?.totalCount || 0,
+  waitlist: event.waiting?.totalCount || 0,
   maxTickets: event.maxTickets,
   fee: event.fee,
   images: event.images,
@@ -40,7 +44,12 @@ export const fetchOrganizedEvents = async (accessToken: string): Promise<MeetupE
       }
     });
 
-    const events = data.self.eventsOrganized.edges.map((edge: Edge<any>) => 
+    if (!data.self.isOrganizer) {
+      console.log('User is not an organizer');
+      return [];
+    }
+
+    const events = data.self.organizedEvents.edges.map((edge: Edge<any>) => 
       processEventData(edge.node)
     );
 
@@ -79,7 +88,7 @@ export const checkMemberStatus = async (
       }
     });
 
-    const onWaitlist = waitlistResult.data.event.waitlist.edges.some(
+    const onWaitlist = waitlistResult.data.event.waiting.edges.some(
       (edge: Edge<any>) => edge.node.id === memberId
     );
 
@@ -132,7 +141,7 @@ export const getMemberDetails = async (
     
     return {
       name: member.name,
-      photo: member.photo?.thumb_link,
+      photo: member.photoUrl,
     };
   } catch (error) {
     console.error('Error fetching member details:', error);
