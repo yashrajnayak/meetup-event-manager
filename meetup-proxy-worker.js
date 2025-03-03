@@ -13,7 +13,10 @@ async function handleRequest(request) {
 
   // Handle preflight requests
   if (request.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders
+    })
   }
 
   try {
@@ -22,42 +25,84 @@ async function handleRequest(request) {
     const meetupUrl = `https://api.meetup.com${targetPath}${url.search}`
 
     // Log request details for debugging
-    console.log('Request URL:', meetupUrl)
-    console.log('Request Method:', request.method)
-    console.log('Request Headers:', Object.fromEntries(request.headers))
+    console.log('Request details:', {
+      url: meetupUrl,
+      method: request.method,
+      headers: Object.fromEntries(request.headers),
+      path: targetPath
+    })
 
     let body = null
-    if (request.method === 'POST') {
+    let headers = {
+      'Authorization': request.headers.get('Authorization') || '',
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+    }
+
+    // Special handling for GraphQL requests
+    if (targetPath === 'gql') {
+      if (request.method !== 'POST') {
+        return new Response(JSON.stringify({
+          error: 'Method Not Allowed',
+          message: 'GraphQL endpoint only accepts POST requests'
+        }), {
+          status: 405,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        })
+      }
+
       body = await request.text()
-      console.log('Request Body:', body)
+      console.log('GraphQL Request Body:', body)
+    } else if (request.method === 'POST') {
+      body = await request.text()
+      console.log('POST Request Body:', body)
     }
 
     const response = await fetch(meetupUrl, {
       method: request.method,
-      headers: {
-        'Authorization': request.headers.get('Authorization') || '',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-      },
-      body: body,
+      headers,
+      body
     })
 
     // Log response details for debugging
-    console.log('Response Status:', response.status)
-    console.log('Response Headers:', Object.fromEntries(response.headers))
+    console.log('Response details:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers)
+    })
 
     const responseBody = await response.text()
     console.log('Response Body:', responseBody)
 
+    // Check if response is valid JSON
+    try {
+      JSON.parse(responseBody)
+    } catch (e) {
+      console.error('Invalid JSON response:', responseBody)
+      return new Response(JSON.stringify({
+        error: 'Invalid Response',
+        message: 'The upstream server returned an invalid JSON response'
+      }), {
+        status: 502,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      })
+    }
+
     // Combine response headers with CORS headers
-    const headers = new Headers(corsHeaders)
-    headers.set('Content-Type', 'application/json')
+    const responseHeaders = new Headers(corsHeaders)
+    responseHeaders.set('Content-Type', 'application/json')
 
     return new Response(responseBody, {
       status: response.status,
       statusText: response.statusText,
-      headers
+      headers: responseHeaders
     })
 
   } catch (error) {
@@ -67,19 +112,17 @@ async function handleRequest(request) {
       cause: error.cause
     })
 
-    return new Response(
-      JSON.stringify({
-        error: 'Proxy Error',
-        message: error.message,
-        stack: error.stack
-      }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
+    return new Response(JSON.stringify({
+      error: 'Proxy Error',
+      message: error.message,
+      type: error.name,
+      details: error.cause
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
       }
-    )
+    })
   }
 } 
