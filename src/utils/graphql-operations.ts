@@ -9,6 +9,7 @@ export const USER_FIELDS = gql`
     bio
     isProMember
     isOrganizer
+    photoUrl
   }
 `;
 
@@ -40,17 +41,16 @@ export const EVENT_FIELDS = gql`
       link
       status
       memberships {
-        totalCount
+        count
       }
     }
-    going {
-      totalCount
-    }
-    waiting {
-      totalCount
-    }
+    going
+    waiting
     maxTickets
-    fee
+    fee {
+      amount
+      currency
+    }
     images {
       id
       baseUrl
@@ -82,7 +82,7 @@ export const GET_ORGANIZED_EVENTS = gql`
   query GetOrganizedEvents($first: Int!, $after: String) {
     self {
       isOrganizer
-      organizedEvents(first: $first, after: $after) {
+      hostedEvents(first: $first, after: $after) {
         edges {
           node {
             ...EventFields
@@ -95,7 +95,7 @@ export const GET_ORGANIZED_EVENTS = gql`
           startCursor
           endCursor
         }
-        totalCount
+        count
       }
     }
   }
@@ -120,7 +120,7 @@ export const GET_EVENT_MEMBERS = gql`
           startCursor
           endCursor
         }
-        totalCount
+        count
       }
     }
   }
@@ -144,7 +144,7 @@ export const GET_EVENT_WAITLIST = gql`
           startCursor
           endCursor
         }
-        totalCount
+        count
       }
     }
   }
@@ -169,7 +169,7 @@ export const UPDATE_MEMBER_STATUS = gql`
   ${MEMBER_FIELDS}
 `;
 
-// Bulk update mutation
+// Bulk update mutation - using the same mutation but keeping it separate for clarity
 export const BULK_UPDATE_MEMBER_STATUS = gql`
   mutation BulkUpdateMemberStatus($input: RsvpInput!) {
     rsvp(input: $input) {

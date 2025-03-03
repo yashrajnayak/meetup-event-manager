@@ -54,7 +54,10 @@ export interface MeetupEvent {
   going: number;
   waitlist: number;
   maxTickets?: number;
-  fee?: number;
+  fee?: {
+    amount: number;
+    currency: string;
+  };
   images?: Array<{
     id: string;
     baseUrl: string;
@@ -105,7 +108,7 @@ export interface Edge<T> {
 export interface Connection<T> {
   edges: Edge<T>[];
   pageInfo: PageInfo;
-  totalCount: number;
+  count: number;
 }
 
 export interface BulkOperationProgress {

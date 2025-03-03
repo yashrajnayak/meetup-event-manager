@@ -19,12 +19,15 @@ const processEventData = (event: any): MeetupEvent => ({
   venue: event.venue,
   group: {
     ...event.group,
-    membershipCount: event.group.memberships?.totalCount || 0
+    membershipCount: event.group.memberships?.count || 0
   },
-  going: event.going?.totalCount || 0,
-  waitlist: event.waiting?.totalCount || 0,
+  going: event.going || 0,
+  waitlist: event.waiting || 0,
   maxTickets: event.maxTickets,
-  fee: event.fee,
+  fee: event.fee ? {
+    amount: event.fee.amount,
+    currency: event.fee.currency
+  } : undefined,
   images: event.images,
 });
 
@@ -48,7 +51,7 @@ export const fetchOrganizedEvents = async (accessToken: string): Promise<MeetupE
       return [];
     }
 
-    const events = data.self.organizedEvents.edges.map((edge: Edge<any>) => 
+    const events = data.self.hostedEvents.edges.map((edge: Edge<any>) => 
       processEventData(edge.node)
     );
 
@@ -250,7 +253,7 @@ export const fetchWaitlistMembers = async (
               hasNextPage: boolean;
               endCursor: string;
             };
-            totalCount: number;
+            count: number;
           };
         };
       }
@@ -273,7 +276,7 @@ export const fetchWaitlistMembers = async (
         }
       });
 
-      const { edges, pageInfo, totalCount } = result.data.event.waiting;
+      const { edges, pageInfo, count } = result.data.event.waiting;
 
       members.push(...edges.map(edge => ({
         id: edge.node.id,
@@ -283,7 +286,7 @@ export const fetchWaitlistMembers = async (
       totalFetched += edges.length;
       if (onProgress) {
         onProgress({
-          total: totalCount,
+          total: count,
           current: totalFetched,
           success: [],
           failed: [],
@@ -436,7 +439,8 @@ export const changeRsvpStatus = async (
           eventId,
           response: 'YES',
           proEmailShareOptin: false,
-          guestsCount: 0
+          guestsCount: 0,
+          optToPay: false
         },
       },
       context: {
