@@ -60,9 +60,21 @@ async function handleRequest(request) {
       body = await request.text()
       console.log('GraphQL Request Body:', body)
 
-      // Ensure the body is valid JSON
+      // Ensure the body is valid JSON and contains the query
       try {
-        JSON.parse(body)
+        const parsedBody = JSON.parse(body)
+        if (!parsedBody.query) {
+          return new Response(JSON.stringify({
+            error: 'Invalid Request',
+            message: 'GraphQL request must contain a query'
+          }), {
+            status: 400,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          })
+        }
       } catch (e) {
         return new Response(JSON.stringify({
           error: 'Invalid Request',
@@ -75,23 +87,25 @@ async function handleRequest(request) {
           }
         })
       }
+
+      // Make the request to Meetup's GraphQL API
+      const response = await fetch(meetupUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': request.headers.get('Authorization') || '',
+          'Origin': 'https://www.meetup.com',
+          'Referer': 'https://www.meetup.com/',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+        },
+        body
+      })
+
     } else if (request.method === 'POST') {
       body = await request.text()
       console.log('POST Request Body:', body)
     }
-
-    const response = await fetch(meetupUrl, {
-      method: request.method,
-      headers,
-      body
-    })
-
-    // Log response details for debugging
-    console.log('Response details:', {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers)
-    })
 
     const responseBody = await response.text()
     console.log('Response Body:', responseBody)
@@ -105,7 +119,9 @@ async function handleRequest(request) {
       return new Response(JSON.stringify({
         error: 'Invalid Response',
         message: 'The upstream server returned an invalid JSON response',
-        details: responseBody.slice(0, 200) // Include first 200 chars of response for debugging
+        details: responseBody.slice(0, 200), // Include first 200 chars of response for debugging
+        status: response.status,
+        statusText: response.statusText
       }), {
         status: 502,
         headers: {
@@ -120,9 +136,26 @@ async function handleRequest(request) {
       return new Response(JSON.stringify({
         error: 'GraphQL Error',
         message: parsedResponse.errors[0]?.message || 'Unknown GraphQL error',
-        errors: parsedResponse.errors
+        errors: parsedResponse.errors,
+        status: response.status
       }), {
-        status: 400,
+        status: response.status === 200 ? 400 : response.status,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      })
+    }
+
+    // If the response status is not ok (not in 200-299 range)
+    if (!response.ok) {
+      return new Response(JSON.stringify({
+        error: 'Upstream Error',
+        message: parsedResponse.message || response.statusText,
+        status: response.status,
+        details: parsedResponse
+      }), {
+        status: response.status,
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json'
