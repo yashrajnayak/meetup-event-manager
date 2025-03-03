@@ -84,6 +84,44 @@ The application implements careful rate limit handling:
 - Automatic retry on rate limit errors
 - Progress tracking for bulk operations
 
+## CORS and Proxy Configuration
+
+The application uses a multi-proxy setup to handle CORS and API access:
+
+### Cloudflare Worker Proxy
+
+The primary proxy is a Cloudflare Worker that handles:
+- GraphQL requests to Meetup's API
+- Authentication token forwarding
+- CORS headers and preflight requests
+- Error handling and response validation
+
+Configuration in `meetup-proxy-worker.js`:
+```js
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'https://yashrajnayak.github.io',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Credentials': 'true'
+}
+```
+
+### Fallback Proxy
+
+A fallback proxy (AllOrigins) is configured for redundancy:
+- Automatic failover if primary proxy is unavailable
+- Health checks to monitor proxy status
+- Transparent request forwarding
+
+### Error Handling
+
+The proxy system includes:
+- Detailed error logging
+- Invalid JSON response detection
+- GraphQL-specific error handling
+- Status code propagation
+- Automatic retry with fallback proxies
+
 ## Contributing
 
 1. Fork the repository
