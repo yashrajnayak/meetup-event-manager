@@ -22,31 +22,36 @@ const proxyServers: ProxyConfig[] = [
       
       // For GraphQL requests
       if (url.includes('/gql')) {
+        const headers = options?.headers as Record<string, string>;
+        const requestHeaders: Record<string, string> = {
+          'Authorization': headers?.['Authorization'] || '',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        };
+
         return {
           url: finalUrl,
           options: {
-            ...(options || {}),
             method: 'POST',
-            headers: {
-              ...options?.headers,
-              'Accept': 'application/json',
-              'Content-Type': 'application/json'
-            }
+            headers: requestHeaders,
+            body: options?.body
           }
         };
       }
       
       // For REST requests
+      const requestHeaders: Record<string, string> = {
+        ...(options?.headers as Record<string, string> || {}),
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      };
+
       return {
         url: finalUrl,
         options: {
           ...(options || {}),
           method: options?.method || 'GET',
-          headers: {
-            ...options?.headers,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          }
+          headers: requestHeaders
         }
       };
     }
@@ -64,43 +69,39 @@ const proxyServers: ProxyConfig[] = [
       
       // Extract authorization header
       const headers = options?.headers as Record<string, string>;
-      const auth = headers?.['Authorization'];
+      const auth = headers?.['Authorization']?.replace('Bearer ', '');
       
       // For GraphQL endpoint
       if (url.includes('/gql')) {
-        // Include auth in the body for GraphQL requests
-        const body = options?.body ? JSON.parse(options.body as string) : {};
-        const newBody = {
-          ...body,
-          extensions: {
-            ...body.extensions,
-            authorization: auth?.replace('Bearer ', '') // Remove 'Bearer ' prefix
-          }
+        // Add auth as a URL parameter
+        const authParam = auth ? `&authorization=${encodeURIComponent(auth)}` : '';
+        const requestHeaders: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         };
 
         return {
-          url: `${proxyServers[1].url}?url=${encodeURIComponent(targetUrl)}`,
+          url: `${proxyServers[1].url}?url=${encodeURIComponent(targetUrl)}${authParam}`,
           options: {
             method: 'POST',
-            body: JSON.stringify(newBody),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            }
+            body: options?.body,
+            headers: requestHeaders
           }
         };
       }
       
-      // For REST endpoints, include auth in the URL
-      const authParam = auth ? `&authorization=${encodeURIComponent(auth.replace('Bearer ', ''))}` : '';
+      // For REST endpoints
+      const authParam = auth ? `&authorization=${encodeURIComponent(auth)}` : '';
+      const requestHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+
       return { 
         url: `${proxyServers[1].url}?url=${encodeURIComponent(targetUrl)}${authParam}`,
         options: {
           method: options?.method || 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          }
+          headers: requestHeaders
         }
       };
     }
