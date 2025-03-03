@@ -10,9 +10,6 @@ const STORAGE_KEY = 'meetup_auth';
 
 // Get client ID from environment variables
 const CLIENT_ID = import.meta.env.VITE_MEETUP_CLIENT_ID;
-if (!CLIENT_ID) {
-  throw new Error('Missing VITE_MEETUP_CLIENT_ID environment variable');
-}
 
 // Debug logging for deployment
 console.log('Auth Configuration:', {
@@ -28,11 +25,18 @@ export const initialAuthState: AuthState = {
   isAuthenticated: false,
   accessToken: null,
   user: null,
-  error: null,
+  error: CLIENT_ID ? null : 'Missing Meetup Client ID. Please check your environment configuration.',
 };
 
 // Initialize auth from storage
 export const initializeAuth = (): AuthState => {
+  if (!CLIENT_ID) {
+    return {
+      ...initialAuthState,
+      error: 'Missing Meetup Client ID. Please check your environment configuration.',
+    };
+  }
+
   const storedAuth = localStorage.getItem(STORAGE_KEY);
   if (storedAuth) {
     try {
@@ -60,6 +64,11 @@ export const clearAuth = (): void => {
 
 // Login with Meetup
 export const loginWithMeetup = (): void => {
+  if (!CLIENT_ID) {
+    console.error('Cannot login: Missing Meetup Client ID');
+    return;
+  }
+
   const scope = 'basic event_management';
   const authUrl = `https://secure.meetup.com/oauth2/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scope}`;
   
@@ -75,6 +84,13 @@ export const loginWithMeetup = (): void => {
 
 // Handle auth callback
 export const handleAuthCallback = (): AuthState | null => {
+  if (!CLIENT_ID) {
+    return {
+      ...initialAuthState,
+      error: 'Missing Meetup Client ID. Please check your environment configuration.',
+    };
+  }
+
   console.log('Handling auth callback:', { 
     hash: window.location.hash,
     pathname: window.location.pathname,
@@ -107,6 +123,13 @@ export const handleAuthCallback = (): AuthState | null => {
 
 // Fetch user profile
 export const fetchUserProfile = async (accessToken: string): Promise<AuthState> => {
+  if (!CLIENT_ID) {
+    return {
+      ...initialAuthState,
+      error: 'Missing Meetup Client ID. Please check your environment configuration.',
+    };
+  }
+
   try {
     const response = await fetch(`${MEETUP_API_URL}/members/self`, {
       headers: {

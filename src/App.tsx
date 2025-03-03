@@ -132,7 +132,7 @@ function App() {
   // Render the appropriate screen based on the current step
   const renderScreen = () => {
     if (!auth.isAuthenticated) {
-      return <LoginScreen />;
+      return <LoginScreen error={auth.error} />;
     }
 
     switch (appState.step) {
@@ -173,7 +173,7 @@ function App() {
           />
         );
       default:
-        return <LoginScreen />;
+        return <LoginScreen error={auth.error} />;
     }
   };
 
