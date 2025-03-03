@@ -129,7 +129,7 @@ const GET_USER_PROFILE = gql`
       name
       email
       bio
-      isProMember
+      isPro
       isOrganizer
     }
   }

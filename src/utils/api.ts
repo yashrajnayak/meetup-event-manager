@@ -43,8 +43,20 @@ export const fetchOrganizedEvents = async (accessToken: string): Promise<MeetupE
       }
     });
 
+    // Check if data and self exist
+    if (!data?.self) {
+      console.log('No user data returned');
+      return [];
+    }
+
     if (!data.self.isOrganizer) {
       console.log('User is not an organizer');
+      return [];
+    }
+
+    // Check if hostedEvents exists and has edges
+    if (!data.self.hostedEvents?.edges) {
+      console.log('No hosted events found');
       return [];
     }
 
@@ -72,7 +84,7 @@ export const fetchOrganizedEvents = async (accessToken: string): Promise<MeetupE
     return events;
   } catch (error) {
     console.error('Error fetching events:', error);
-    return [];
+    throw error; // Re-throw to allow proper error handling upstream
   }
 };
 
