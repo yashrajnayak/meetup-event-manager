@@ -61,8 +61,9 @@ async function handleRequest(request) {
       console.log('GraphQL Request Body:', body)
 
       // Ensure the body is valid JSON and contains the query
+      let parsedBody
       try {
-        const parsedBody = JSON.parse(body)
+        parsedBody = JSON.parse(body)
         if (!parsedBody.query) {
           return new Response(JSON.stringify({
             error: 'Invalid Request',
@@ -89,24 +90,213 @@ async function handleRequest(request) {
       }
 
       // Make the request to Meetup's GraphQL API
-      const response = await fetch(meetupUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': request.headers.get('Authorization') || '',
-          'Origin': 'https://www.meetup.com',
-          'Referer': 'https://www.meetup.com/',
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-        },
-        body
-      })
+      try {
+        const response = await fetch(meetupUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': request.headers.get('Authorization') || '',
+            'Origin': 'https://www.meetup.com',
+            'Referer': 'https://www.meetup.com/',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            'Host': 'api.meetup.com'
+          },
+          body
+        })
 
+        const responseBody = await response.text()
+        console.log('GraphQL Response:', {
+          status: response.status,
+          body: responseBody
+        })
+
+        try {
+          // Try to parse the response as JSON
+          JSON.parse(responseBody)
+          
+          // If successful, return the response
+          return new Response(responseBody, {
+            status: response.status,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          })
+        } catch (e) {
+          // If parsing fails, return error
+          return new Response(JSON.stringify({
+            error: 'Invalid Response',
+            message: 'The upstream server returned an invalid JSON response',
+            details: responseBody.slice(0, 200)
+          }), {
+            status: 502,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          })
+        }
+      } catch (error) {
+        console.error('GraphQL Request Error:', error)
+        return new Response(JSON.stringify({
+          error: 'GraphQL Request Failed',
+          message: error.message,
+          details: error.cause
+        }), {
+          status: 502,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        })
+      }
     } else if (request.method === 'POST') {
       body = await request.text()
       console.log('POST Request Body:', body)
+
+      // Make the request to Meetup's API
+      try {
+        const response = await fetch(meetupUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': request.headers.get('Authorization') || '',
+            'Origin': 'https://www.meetup.com',
+            'Referer': 'https://www.meetup.com/',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            'Host': 'api.meetup.com'
+          },
+          body
+        })
+
+        const responseBody = await response.text()
+        console.log('REST Response:', {
+          status: response.status,
+          body: responseBody
+        })
+
+        try {
+          // Try to parse the response as JSON
+          JSON.parse(responseBody)
+          
+          // If successful, return the response
+          return new Response(responseBody, {
+            status: response.status,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          })
+        } catch (e) {
+          // If parsing fails, return error
+          return new Response(JSON.stringify({
+            error: 'Invalid Response',
+            message: 'The upstream server returned an invalid JSON response',
+            details: responseBody.slice(0, 200)
+          }), {
+            status: 502,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          })
+        }
+      } catch (error) {
+        console.error('REST Request Error:', error)
+        return new Response(JSON.stringify({
+          error: 'REST Request Failed',
+          message: error.message,
+          details: error.cause
+        }), {
+          status: 502,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        })
+      }
+    } else {
+      // For GET requests
+      try {
+        const response = await fetch(meetupUrl, {
+          method: request.method,
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': request.headers.get('Authorization') || '',
+            'Origin': 'https://www.meetup.com',
+            'Referer': 'https://www.meetup.com/',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            'Host': 'api.meetup.com'
+          }
+        })
+
+        const responseBody = await response.text()
+        console.log('GET Response:', {
+          status: response.status,
+          body: responseBody
+        })
+
+        try {
+          // Try to parse the response as JSON
+          const parsedResponse = JSON.parse(responseBody)
+          
+          // If the response status is not ok (not in 200-299 range)
+          if (!response.ok) {
+            return new Response(JSON.stringify({
+              error: 'Upstream Error',
+              message: parsedResponse.message || response.statusText,
+              status: response.status,
+              details: parsedResponse
+            }), {
+              status: response.status,
+              headers: {
+                ...corsHeaders,
+                'Content-Type': 'application/json'
+              }
+            })
+          }
+
+          // If successful, return the response
+          return new Response(responseBody, {
+            status: response.status,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          })
+        } catch (e) {
+          // If parsing fails, return error
+          return new Response(JSON.stringify({
+            error: 'Invalid Response',
+            message: 'The upstream server returned an invalid JSON response',
+            details: responseBody.slice(0, 200)
+          }), {
+            status: 502,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          })
+        }
+      } catch (error) {
+        console.error('GET Request Error:', error)
+        return new Response(JSON.stringify({
+          error: 'GET Request Failed',
+          message: error.message,
+          details: error.cause
+        }), {
+          status: 502,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        })
+      }
     }
 
+    // Check if response is valid JSON
     const responseBody = await response.text()
     console.log('Response Body:', responseBody)
 
