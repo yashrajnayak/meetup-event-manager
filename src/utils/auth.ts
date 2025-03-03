@@ -163,24 +163,47 @@ const GET_USER_PROFILE = gql`
       email
       bio
       isOrganizer
+      groups(input: { role: "organizer" }) {
+        edges {
+          node {
+            id
+            name
+            urlname
+          }
+        }
+      }
     }
   }
 `;
 
 export async function fetchUserProfile(token: string): Promise<any> {
   try {
+    console.log('Fetching user profile with token:', token ? 'present' : 'missing');
+    
     const response = await client.query({
       query: GET_USER_PROFILE,
       context: {
         headers: {
           'Authorization': `Bearer ${token}`
         }
-      }
+      },
+      fetchPolicy: 'network-only' // Force network request, bypass cache
+    });
+
+    console.log('User profile response:', {
+      hasData: !!response.data,
+      hasErrors: !!response.errors,
+      self: response.data?.self ? 'present' : 'missing'
     });
 
     if (response.errors) {
       console.error('GraphQL errors:', response.errors);
-      throw new Error('Failed to fetch user profile');
+      throw new Error('Failed to fetch user profile: ' + response.errors.map(e => e.message).join(', '));
+    }
+
+    if (!response.data?.self) {
+      console.error('No user data returned in response:', response);
+      throw new Error('User profile data is missing from response');
     }
 
     return response.data.self;
