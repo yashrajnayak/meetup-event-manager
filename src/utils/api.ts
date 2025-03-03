@@ -1,12 +1,10 @@
-import { ApolloClient } from '@apollo/client';
-import { MeetupEvent, MeetupMember, Connection, Edge, BulkOperationProgress, BulkOperationResult } from '../types';
+import { MeetupEvent, MeetupMember, Edge, BulkOperationProgress, BulkOperationResult } from '../types';
 import { client } from './graphql-client';
 import {
   GET_ORGANIZED_EVENTS,
   GET_EVENT_MEMBERS,
   GET_EVENT_WAITLIST,
-  UPDATE_MEMBER_STATUS,
-  BULK_UPDATE_MEMBER_STATUS
+  UPDATE_MEMBER_STATUS
 } from './graphql-operations';
 
 // Helper function to process event data
@@ -25,17 +23,6 @@ const processEventData = (event: any): MeetupEvent => ({
   maxTickets: event.maxTickets,
   fee: event.fee,
   images: event.images,
-});
-
-// Helper function to process member data
-const processMemberData = (member: any): MeetupMember => ({
-  id: member.id,
-  name: member.name,
-  profileUrl: member.profileUrl,
-  photo: member.photo,
-  status: member.status || 'not_found',
-  joinedAt: member.joinedAt,
-  role: member.role,
 });
 
 // Fetch events organized by the user

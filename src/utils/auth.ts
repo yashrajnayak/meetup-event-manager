@@ -1,5 +1,4 @@
 import { AuthState } from '../types';
-import { getHealthyProxy, getProxyConfig, markProxyUnhealthy, transformRequest } from './proxy-config';
 import { client } from './graphql-client';
 import { gql } from '@apollo/client';
 
