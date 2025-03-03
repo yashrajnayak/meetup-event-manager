@@ -5,36 +5,50 @@ import { getProxyConfig, updateProxyHealth } from './proxy-config';
 
 const MAX_RETRIES = 3;
 
-async function customFetch(uri: string, options: RequestInit): Promise<Response> {
+async function customFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
+  const uri = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+  const options = init || {};
+
   const proxyConfig = getProxyConfig();
   if (!proxyConfig) {
-    console.warn('No healthy proxy available for GraphQL request');
+    console.error('No healthy proxy available for GraphQL request');
     throw new Error('No healthy proxy available');
   }
 
-  const { url, options: transformedOptions } = proxyConfig.transformRequest?.(uri, options) || { url: uri, options };
-  console.log('Using proxy:', proxyConfig.url, 'for URI:', url);
-
-  const response = await fetch(url, transformedOptions);
-  
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error('Proxy error:', {
-      proxy: proxyConfig.url,
-      status: response.status,
-      statusText: response.statusText,
-      body: errorBody
-    });
-
-    // Mark proxy as unhealthy for specific error conditions
-    if (response.status === 530 || response.status === 403 || errorBody.includes('error code: 1016')) {
-      updateProxyHealth(proxyConfig.url, false);
-    }
-
-    throw new Error(`Proxy request failed: ${response.status}`);
+  if (!proxyConfig.transformRequest) {
+    console.error('Proxy configuration is missing transformRequest function');
+    throw new Error('Invalid proxy configuration');
   }
 
-  return response;
+  const { url, options: transformedOptions } = proxyConfig.transformRequest(uri, options);
+  console.log('Using proxy:', proxyConfig.url, 'for URI:', url);
+
+  try {
+    const response = await fetch(url, transformedOptions);
+    
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error('Proxy error:', {
+        proxy: proxyConfig.url,
+        status: response.status,
+        statusText: response.statusText,
+        body: errorBody
+      });
+
+      // Mark proxy as unhealthy for specific error conditions
+      if (response.status === 530 || response.status === 403 || errorBody.includes('error code: 1016')) {
+        updateProxyHealth(proxyConfig.url, false);
+      }
+
+      throw new Error(`Proxy request failed: ${response.status}`);
+    }
+
+    return response;
+  } catch (error) {
+    console.error('Fetch error:', error);
+    updateProxyHealth(proxyConfig.url, false);
+    throw error;
+  }
 }
 
 const errorLink = onError(({ networkError, operation, forward }) => {

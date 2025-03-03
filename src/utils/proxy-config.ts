@@ -113,11 +113,22 @@ export async function getHealthyProxy(): Promise<string | null> {
   return healthyProxy?.url || null;
 }
 
+// Get default proxy configuration
+export function getDefaultProxy(): ProxyConfig | null {
+  // Get the first healthy proxy by priority
+  return proxyServers
+    .sort((a, b) => a.priority - b.priority)
+    .find(p => p.isHealthy) || null;
+}
+
 // Get proxy configuration by URL
-export function getProxyConfig(proxyUrl: string): ProxyConfig | null {
+export function getProxyConfig(proxyUrl?: string): ProxyConfig | null {
+  if (!proxyUrl) {
+    return getDefaultProxy();
+  }
   const config = proxyServers.find(p => proxyUrl.startsWith(p.url));
   console.log('Found proxy config for URL:', proxyUrl, 'Config:', config);
-  return config || null;
+  return config || getDefaultProxy();
 }
 
 // Transform request based on proxy configuration
