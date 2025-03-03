@@ -25,13 +25,18 @@ export const USER_FIELDS = gql`
           id
           status
           group {
-            ...GroupFields
+            id
+            name
+            urlname
+            status
+            memberships {
+              count
+            }
           }
         }
       }
     }
   }
-  ${GROUP_FIELDS}
 `;
 
 export const EVENT_FIELDS = gql`
@@ -53,12 +58,17 @@ export const EVENT_FIELDS = gql`
       lng
     }
     group {
-      ...GroupFields
+      id
+      name
+      urlname
+      status
+      memberships {
+        count
+      }
     }
     going
     maxTickets
   }
-  ${GROUP_FIELDS}
 `;
 
 export const MEMBER_FIELDS = gql`
@@ -98,7 +108,13 @@ export const GET_ORGANIZED_EVENTS = gql`
             id
             status
             group {
-              ...GroupFields
+              id
+              name
+              urlname
+              status
+              memberships {
+                count
+              }
             }
           }
         }
@@ -106,14 +122,38 @@ export const GET_ORGANIZED_EVENTS = gql`
       hostedEvents {
         edges {
           node {
-            ...EventFields
+            id
+            title
+            description
+            dateTime
+            eventType
+            status
+            venue {
+              id
+              name
+              address
+              city
+              state
+              country
+              lat
+              lng
+            }
+            group {
+              id
+              name
+              urlname
+              status
+              memberships {
+                count
+              }
+            }
+            going
+            maxTickets
           }
         }
       }
     }
   }
-  ${GROUP_FIELDS}
-  ${EVENT_FIELDS}
 `;
 
 export const GET_EVENT_MEMBERS = gql`
