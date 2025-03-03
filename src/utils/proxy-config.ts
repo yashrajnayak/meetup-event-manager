@@ -10,7 +10,7 @@ interface ProxyConfig {
 // List of proxy servers in order of priority
 const proxyServers: ProxyConfig[] = [
   {
-    url: 'https://meetup-proxy.oneyashraj.workers.dev/proxy',
+    url: 'https://meetup-proxy.oneyashraj.workers.dev',
     priority: 1,
     isHealthy: true,
     lastCheck: 0,
@@ -24,9 +24,15 @@ const proxyServers: ProxyConfig[] = [
     requiresCredentials: false,
     transformRequest: (url: string, options: RequestInit) => {
       // Extract the actual endpoint from the proxy URL
-      const endpoint = url.includes('/gql') 
-        ? 'https://api.meetup.com/gql'
-        : url.replace(/^.*?\/proxy\//, 'https://api.meetup.com/');
+      let endpoint: string;
+      if (url.includes('/gql')) {
+        endpoint = 'https://api.meetup.com/gql';
+      } else {
+        const match = url.match(/\/proxy\/(.*?)(?:\?|$)/);
+        endpoint = match 
+          ? `https://api.meetup.com/${match[1]}`
+          : url.replace(/^.*?\/proxy\//, 'https://api.meetup.com/');
+      }
 
       // Get auth token from headers
       const authHeader = options.headers?.['Authorization'] as string;
@@ -35,6 +41,8 @@ const proxyServers: ProxyConfig[] = [
       // Add token to URL for AllOrigins
       const targetUrl = `${endpoint}${endpoint.includes('?') ? '&' : '?'}access_token=${token}`;
       
+      console.log('AllOrigins target URL:', targetUrl);
+
       // Create new headers without auth
       const newHeaders = new Headers(options.headers);
       newHeaders.delete('Authorization');
@@ -51,13 +59,17 @@ const proxyServers: ProxyConfig[] = [
             parsedBody.variables = { access_token: token };
           }
           newBody = JSON.stringify(parsedBody);
+          console.log('Transformed GraphQL body:', newBody);
         } catch (e) {
           console.warn('Failed to parse GraphQL body:', e);
         }
       }
 
+      const transformedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+      console.log('Final AllOrigins URL:', transformedUrl);
+
       return {
-        url: `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+        url: transformedUrl,
         options: {
           ...options,
           headers: newHeaders,
@@ -82,10 +94,19 @@ async function checkProxyHealth(proxy: ProxyConfig): Promise<boolean> {
           'Accept': 'application/json'
         }
       });
-      return response.ok;
+      
+      if (!response.ok) {
+        console.warn('AllOrigins health check failed:', {
+          status: response.status,
+          statusText: response.statusText
+        });
+        return false;
+      }
+      
+      return true;
     }
 
-    const response = await fetch(`${proxy.url}/ping`, {
+    const response = await fetch(`${proxy.url}/proxy/ping`, {
       method: 'OPTIONS',
       headers: {
         'Accept': 'application/json'
@@ -94,7 +115,15 @@ async function checkProxyHealth(proxy: ProxyConfig): Promise<boolean> {
       mode: 'cors'
     });
 
-    return response.ok;
+    if (!response.ok) {
+      console.warn('Cloudflare Worker health check failed:', {
+        status: response.status,
+        statusText: response.statusText
+      });
+      return false;
+    }
+
+    return true;
   } catch (error) {
     console.warn(`Proxy health check failed for ${proxy.url}:`, error);
     return false;
@@ -107,6 +136,11 @@ async function updateProxyHealth(proxy: ProxyConfig): Promise<void> {
   if (now - proxy.lastCheck > HEALTH_CHECK_INTERVAL) {
     proxy.isHealthy = await checkProxyHealth(proxy);
     proxy.lastCheck = now;
+    console.log('Updated proxy health:', {
+      url: proxy.url,
+      isHealthy: proxy.isHealthy,
+      lastCheck: new Date(proxy.lastCheck).toISOString()
+    });
   }
 }
 
@@ -120,12 +154,15 @@ export async function getHealthyProxy(): Promise<string | null> {
     .sort((a, b) => a.priority - b.priority)
     .find(proxy => proxy.isHealthy);
 
+  console.log('Selected healthy proxy:', healthyProxy?.url || 'none available');
   return healthyProxy?.url || null;
 }
 
 // Get proxy configuration by URL
 export function getProxyConfig(proxyUrl: string): ProxyConfig | null {
-  return proxyServers.find(p => p.url === proxyUrl || proxyUrl.startsWith(p.url)) || null;
+  const config = proxyServers.find(p => proxyUrl.startsWith(p.url));
+  console.log('Found proxy config for URL:', proxyUrl, 'Config:', config);
+  return config || null;
 }
 
 // Transform request based on proxy configuration
@@ -145,15 +182,16 @@ export function getGraphQLEndpoint(proxyUrl: string): string {
   if (proxyConfig.url.includes('allorigins')) {
     return proxyConfig.url;
   }
-  return `${proxyUrl}/gql`;
+  return `${proxyUrl}/proxy/gql`;
 }
 
 // Mark a proxy as unhealthy
 export function markProxyUnhealthy(proxyUrl: string): void {
-  const proxy = proxyServers.find(p => p.url === proxyUrl || proxyUrl.startsWith(p.url));
+  const proxy = proxyServers.find(p => proxyUrl.startsWith(p.url));
   if (proxy) {
     proxy.isHealthy = false;
     proxy.lastCheck = Date.now();
+    console.log('Marked proxy as unhealthy:', proxy.url);
   }
 }
 
@@ -163,4 +201,5 @@ export function resetProxyHealth(): void {
     proxy.isHealthy = true;
     proxy.lastCheck = 0;
   });
+  console.log('Reset all proxy health statuses');
 } 
