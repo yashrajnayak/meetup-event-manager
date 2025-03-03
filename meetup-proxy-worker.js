@@ -55,8 +55,26 @@ async function handleRequest(request) {
         })
       }
 
+      // For GraphQL requests, always use the GraphQL endpoint
+      const meetupUrl = 'https://api.meetup.com/gql'
       body = await request.text()
       console.log('GraphQL Request Body:', body)
+
+      // Ensure the body is valid JSON
+      try {
+        JSON.parse(body)
+      } catch (e) {
+        return new Response(JSON.stringify({
+          error: 'Invalid Request',
+          message: 'Request body must be valid JSON'
+        }), {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        })
+      }
     } else if (request.method === 'POST') {
       body = await request.text()
       console.log('POST Request Body:', body)
@@ -79,15 +97,32 @@ async function handleRequest(request) {
     console.log('Response Body:', responseBody)
 
     // Check if response is valid JSON
+    let parsedResponse
     try {
-      JSON.parse(responseBody)
+      parsedResponse = JSON.parse(responseBody)
     } catch (e) {
       console.error('Invalid JSON response:', responseBody)
       return new Response(JSON.stringify({
         error: 'Invalid Response',
-        message: 'The upstream server returned an invalid JSON response'
+        message: 'The upstream server returned an invalid JSON response',
+        details: responseBody.slice(0, 200) // Include first 200 chars of response for debugging
       }), {
         status: 502,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      })
+    }
+
+    // Check for GraphQL errors
+    if (targetPath === 'gql' && parsedResponse.errors) {
+      return new Response(JSON.stringify({
+        error: 'GraphQL Error',
+        message: parsedResponse.errors[0]?.message || 'Unknown GraphQL error',
+        errors: parsedResponse.errors
+      }), {
+        status: 400,
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json'
