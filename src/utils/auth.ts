@@ -1,5 +1,7 @@
 import { AuthState } from '../types';
 import { getHealthyProxy, getProxyConfig, markProxyUnhealthy, transformRequest } from './proxy-config';
+import { client } from './graphql-client';
+import { gql } from '@apollo/client';
 
 // Constants
 const isDevelopment = import.meta.env.MODE === 'development';
@@ -121,87 +123,41 @@ export const handleAuthCallback = (): AuthState | null => {
   return authState;
 };
 
-// Fetch user profile with proxy fallback
-export const fetchUserProfile = async (accessToken: string): Promise<AuthState> => {
-  if (!CLIENT_ID) {
-    return {
-      ...initialAuthState,
-      error: 'Missing Meetup Client ID. Please check your environment configuration.',
-    };
-  }
-
-  let lastError: Error | null = null;
-  let proxyUrl: string | null;
-
-  while ((proxyUrl = await getHealthyProxy())) {
-    try {
-      const proxyConfig = getProxyConfig(proxyUrl);
-      if (!proxyConfig) continue;
-
-      const requestOptions = {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        mode: 'cors' as const,
-        credentials: proxyConfig.requiresCredentials ? 'include' as const : 'omit' as const
-      };
-
-      const { url, options } = transformRequest(proxyUrl, `${proxyUrl}/members/self`, requestOptions);
-
-      const response = await fetch(url, options);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Profile fetch error:', {
-          proxy: proxyUrl,
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-
-        // Mark this proxy as unhealthy if we get a 530 error
-        if (response.status === 530) {
-          markProxyUnhealthy(proxyUrl);
-          continue; // Try the next proxy
-        }
-
-        throw new Error(`Failed to fetch user profile: ${response.status} ${response.statusText}`);
+const GET_SELF_QUERY = gql`
+  query GetSelf {
+    self {
+      id
+      name
+      email
+      photo {
+        highres
       }
-
-      const user = await response.json();
-      
-      return {
-        isAuthenticated: true,
-        accessToken,
-        user: {
-          id: user.id,
-          name: user.name,
-          photo: user.photo ? {
-            id: user.photo.id,
-            baseUrl: user.photo.baseUrl,
-          } : undefined,
-        },
-        error: null,
-      };
-    } catch (error) {
-      console.error(`Error with proxy ${proxyUrl}:`, error);
-      lastError = error instanceof Error ? error : new Error(String(error));
-      markProxyUnhealthy(proxyUrl);
     }
   }
+`;
 
-  // All proxies failed
-  console.error('All proxies failed:', lastError);
-  return {
-    isAuthenticated: false,
-    accessToken: null,
-    user: null,
-    error: lastError?.message || 'All proxies failed',
-  };
-};
+export async function fetchUserProfile(token: string): Promise<any> {
+  try {
+    const response = await client.query({
+      query: GET_SELF_QUERY,
+      context: {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    });
+
+    if (response.errors) {
+      console.error('GraphQL errors:', response.errors);
+      throw new Error('Failed to fetch user profile');
+    }
+
+    return response.data.self;
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    throw error;
+  }
+}
 
 // Logout
 export const logout = (): AuthState => {

@@ -1,126 +1,89 @@
-import { ApolloClient, InMemoryCache, createHttpLink, from } from '@apollo/client';
+import { ApolloClient, InMemoryCache, ApolloLink, HttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
-import { getHealthyProxy, getGraphQLEndpoint, markProxyUnhealthy, getProxyConfig, transformRequest } from './proxy-config';
+import { getProxyConfig, updateProxyHealth } from './proxy-config';
 
-// Custom fetch function that applies proxy transformations
-const customFetch = async (uri: string, options: RequestInit) => {
-  const proxyConfig = getProxyConfig(uri);
+const MAX_RETRIES = 3;
+
+async function customFetch(uri: string, options: RequestInit): Promise<Response> {
+  const proxyConfig = getProxyConfig();
   if (!proxyConfig) {
-    console.warn('No proxy configuration found');
-    throw new Error('No proxy configuration available');
+    console.warn('No healthy proxy available for GraphQL request');
+    throw new Error('No healthy proxy available');
   }
 
-  let url = uri;
-  let fetchOptions = { ...options };
+  const { url, options: transformedOptions } = proxyConfig.transformRequest?.(uri, options) || { url: uri, options };
+  console.log('Using proxy:', proxyConfig.url, 'for URI:', url);
 
-  if (proxyConfig.transformRequest) {
-    const transformed = proxyConfig.transformRequest(uri, options);
-    url = transformed.url;
-    fetchOptions = transformed.options;
-  }
-
-  console.log(`Using proxy: ${proxyConfig.url} for request`);
+  const response = await fetch(url, transformedOptions);
   
-  try {
-    const response = await fetch(url, fetchOptions);
-    
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error(`Proxy error: ${proxyConfig.url} returned ${response.status}`, errorBody);
-      markProxyUnhealthy(proxyConfig.url);
-      throw new Error(`Proxy request failed: ${response.status}`);
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error('Proxy error:', {
+      proxy: proxyConfig.url,
+      status: response.status,
+      statusText: response.statusText,
+      body: errorBody
+    });
+
+    // Mark proxy as unhealthy for specific error conditions
+    if (response.status === 530 || response.status === 403 || errorBody.includes('error code: 1016')) {
+      updateProxyHealth(proxyConfig.url, false);
     }
 
-    return response;
-  } catch (error) {
-    console.error(`Fetch error for ${proxyConfig.url}:`, error);
-    markProxyUnhealthy(proxyConfig.url);
-    throw error;
+    throw new Error(`Proxy request failed: ${response.status}`);
   }
-};
 
-// Error handling link with proxy fallback
+  return response;
+}
+
 const errorLink = onError(({ networkError, operation, forward }) => {
   if (networkError) {
     console.error('[Network error]:', networkError);
     
-    // Get a new healthy proxy
-    const newProxy = getHealthyProxy();
-    if (!newProxy) {
-      console.error('No healthy proxies available');
-      return;
+    // If it's a proxy error, try with a different proxy
+    if (networkError.message.includes('Proxy request failed') || 
+        networkError.message.includes('Failed to fetch') ||
+        networkError.message.includes('error code: 1016')) {
+      const currentProxy = getProxyConfig();
+      if (currentProxy) {
+        updateProxyHealth(currentProxy.url, false);
+      }
+      
+      // Retry the operation
+      return forward(operation);
     }
-
-    // Retry with new proxy
-    operation.setContext({
-      uri: `${newProxy.url}/proxy/gql`
-    });
-
-    return forward(operation);
   }
 });
 
-// Retry link with exponential backoff
 const retryLink = new RetryLink({
   delay: {
     initial: 300,
-    max: 10000,
-    jitter: true,
+    max: 3000,
+    jitter: true
   },
   attempts: {
-    max: 5,
+    max: MAX_RETRIES,
     retryIf: (error, _operation) => {
-      // Don't retry if all proxies have failed
-      if (error.message === 'All proxies failed') return false;
-      // Don't retry if it's an invalid configuration
-      if (error.message === 'Invalid proxy configuration') return false;
-      return true;
+      const shouldRetry = Boolean(
+        error && 
+        (error.message.includes('Proxy request failed') || 
+         error.message.includes('Failed to fetch') ||
+         error.message.includes('error code: 1016'))
+      );
+      
+      // Only retry if we have a healthy proxy available
+      return shouldRetry && Boolean(getProxyConfig());
     }
-  },
+  }
 });
 
-// Create a function that returns configured client with auth token
-export const createApolloClient = async (token: string) => {
-  // Get initial healthy proxy
-  const proxyUrl = await getHealthyProxy();
-  if (!proxyUrl) {
-    throw new Error('No healthy proxy available');
-  }
+const httpLink = new HttpLink({
+  uri: '/gql',
+  fetch: customFetch
+});
 
-  const proxyConfig = getProxyConfig(proxyUrl);
-  if (!proxyConfig) {
-    throw new Error('Invalid proxy configuration');
-  }
-
-  console.log('Creating Apollo client with proxy:', proxyUrl);
-
-  return new ApolloClient({
-    link: from([
-      errorLink,
-      retryLink,
-      createHttpLink({
-        uri: getGraphQLEndpoint(proxyUrl),
-        credentials: proxyConfig.requiresCredentials ? 'include' : 'omit',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        fetchOptions: {
-          mode: 'cors'
-        },
-        fetch: customFetch
-      }),
-    ]),
-    cache: new InMemoryCache(),
-    defaultOptions: {
-      watchQuery: {
-        fetchPolicy: 'network-only',
-      },
-      query: {
-        fetchPolicy: 'network-only',
-      },
-    },
-  });
-}; 
+export const client = new ApolloClient({
+  link: ApolloLink.from([errorLink, retryLink, httpLink]),
+  cache: new InMemoryCache()
+}); 
