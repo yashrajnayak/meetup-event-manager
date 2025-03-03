@@ -9,6 +9,7 @@ export const GROUP_FIELDS = gql`
     status
     memberships {
       count
+      totalCount
     }
   }
 `;
@@ -19,7 +20,8 @@ export const USER_FIELDS = gql`
     name
     email
     bio
-    memberships {
+    memberships(first: 100) {
+      totalCount
       edges {
         node {
           id
@@ -29,6 +31,10 @@ export const USER_FIELDS = gql`
             ...GroupFields
           }
         }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
       }
     }
   }
@@ -61,6 +67,11 @@ export const EVENT_FIELDS = gql`
     rsvpSettings {
       guestLimit
       rsvpLimit
+      rsvpOpenTime
+      rsvpCloseTime
+    }
+    tickets(first: 0) {
+      totalCount
     }
   }
   ${GROUP_FIELDS}
@@ -71,13 +82,18 @@ export const MEMBER_FIELDS = gql`
     id
     name
     joinedAt
-    memberships {
+    memberships(first: 10) {
+      totalCount
       edges {
         node {
           id
           status
           role
         }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
       }
     }
   }
@@ -98,7 +114,8 @@ export const GET_ORGANIZED_EVENTS = gql`
     self {
       id
       name
-      memberships {
+      memberships(first: 100) {
+        totalCount
         edges {
           node {
             id
@@ -109,12 +126,21 @@ export const GET_ORGANIZED_EVENTS = gql`
             }
           }
         }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
       }
-      hostedEvents {
+      hostedEvents(first: 50) {
+        totalCount
         edges {
           node {
             ...EventFields
           }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
         }
       }
     }
@@ -128,6 +154,7 @@ export const GET_EVENT_MEMBERS = gql`
     event(id: $eventId) {
       id
       members(first: $first, after: $after) {
+        totalCount
         edges {
           node {
             ...MemberFields
@@ -137,7 +164,6 @@ export const GET_EVENT_MEMBERS = gql`
           hasNextPage
           endCursor
         }
-        count
       }
     }
   }
@@ -148,10 +174,12 @@ export const GET_EVENT_WAITLIST = gql`
   query GetEventWaitlist($eventId: ID!, $first: Int!, $after: String) {
     event(id: $eventId) {
       id
-      tickets(first: $first, after: $after, status: [WAITLIST]) {
+      tickets(first: $first, after: $after, status: WAITLIST) {
+        totalCount
         edges {
           node {
             id
+            status
             member {
               ...MemberFields
             }
@@ -161,7 +189,6 @@ export const GET_EVENT_WAITLIST = gql`
           hasNextPage
           endCursor
         }
-        count
       }
     }
   }
