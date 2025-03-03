@@ -2,7 +2,7 @@ import { ApolloClient, InMemoryCache, createHttpLink, from } from '@apollo/clien
 import { onError } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
 
-const MEETUP_GRAPHQL_URL = 'https://api.meetup.com/gql';
+const PROXY_URL = 'https://meetup-proxy.oneyashraj.workers.dev/proxy/gql';
 
 // Error handling link
 const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) => {
@@ -44,8 +44,8 @@ const retryLink = new RetryLink({
 
 // HTTP link with auth header
 const httpLink = createHttpLink({
-  uri: MEETUP_GRAPHQL_URL,
-  credentials: 'same-origin',
+  uri: PROXY_URL,
+  credentials: 'include',
 });
 
 // Create a function that returns configured client with auth token
@@ -55,7 +55,8 @@ export const createApolloClient = (token: string) => {
       errorLink,
       retryLink,
       createHttpLink({
-        uri: MEETUP_GRAPHQL_URL,
+        uri: PROXY_URL,
+        credentials: 'include',
         headers: {
           authorization: `Bearer ${token}`,
         },

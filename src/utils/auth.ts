@@ -2,6 +2,7 @@ import { AuthState } from '../types';
 
 // Constants
 const MEETUP_API_URL = 'https://api.meetup.com';
+const PROXY_URL = 'https://meetup-proxy.oneyashraj.workers.dev/proxy';
 const isDevelopment = import.meta.env.MODE === 'development';
 const BASE_URL = isDevelopment ? 'http://localhost:5174' : 'https://yashrajnayak.github.io';
 const APP_PATH = isDevelopment ? '' : '/meetup';
@@ -131,10 +132,11 @@ export const fetchUserProfile = async (accessToken: string): Promise<AuthState> 
   }
 
   try {
-    const response = await fetch(`${MEETUP_API_URL}/members/self`, {
+    const response = await fetch(`${PROXY_URL}/members/self`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+      credentials: 'include',
     });
 
     if (!response.ok) {
