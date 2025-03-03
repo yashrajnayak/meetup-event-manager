@@ -42,12 +42,6 @@ const retryLink = new RetryLink({
   },
 });
 
-// HTTP link with auth header
-const httpLink = createHttpLink({
-  uri: PROXY_URL,
-  credentials: 'include',
-});
-
 // Create a function that returns configured client with auth token
 export const createApolloClient = (token: string) => {
   return new ApolloClient({
@@ -59,6 +53,7 @@ export const createApolloClient = (token: string) => {
         credentials: 'include',
         headers: {
           authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       }),
     ]),

@@ -133,10 +133,13 @@ export const fetchUserProfile = async (accessToken: string): Promise<AuthState> 
 
   try {
     const response = await fetch(`${PROXY_URL}/members/self`, {
+      method: 'GET',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
       },
       credentials: 'include',
+      mode: 'cors',
     });
 
     if (!response.ok) {
