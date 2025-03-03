@@ -7,6 +7,21 @@ import {
   UPDATE_MEMBER_STATUS
 } from './graphql-operations';
 
+interface MembershipEdge {
+  node: {
+    role: string;
+    group: {
+      id: string;
+      name: string;
+      urlname: string;
+      status: string;
+      memberships: {
+        count: number;
+      };
+    };
+  };
+}
+
 interface EventEdge {
   node: MeetupEvent;
 }
@@ -34,9 +49,12 @@ export async function fetchOrganizedEvents(token: string): Promise<MeetupEvent[]
       return [];
     }
 
-    // Check if user has any organizer groups
-    const hasOrganizerGroups = data.self.groups?.edges?.length > 0;
-    if (!hasOrganizerGroups) {
+    // Check if user has any organizer roles in their memberships
+    const hasOrganizerRole = data.self.memberships?.edges?.some(
+      (edge: MembershipEdge) => edge.node.role === 'ORGANIZER' || edge.node.role === 'CO_ORGANIZER'
+    );
+    
+    if (!hasOrganizerRole) {
       console.log('User is not an organizer of any groups');
       return [];
     }

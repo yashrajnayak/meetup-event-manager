@@ -15,14 +15,19 @@ export interface MeetupUser {
   name: string;
   email?: string;
   bio?: string;
-  groups?: {
+  memberships?: {
     edges: Array<{
       node: {
-        id: string;
-        name: string;
-        urlname: string;
-        status: string;
-        membershipCount: number;
+        role: string;
+        group: {
+          id: string;
+          name: string;
+          urlname: string;
+          status: string;
+          memberships: {
+            count: number;
+          };
+        };
       };
     }>;
   };

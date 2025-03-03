@@ -162,14 +162,19 @@ const GET_USER_PROFILE = gql`
       name
       email
       bio
-      groups(input: { role: "organizer" }) {
+      memberships {
         edges {
           node {
-            id
-            name
-            urlname
-            status
-            membershipCount
+            group {
+              id
+              name
+              urlname
+              status
+              memberships {
+                count
+              }
+            }
+            role
           }
         }
       }
