@@ -7,14 +7,21 @@ export const USER_FIELDS = gql`
     name
     email
     bio
-    groups(input: { role: "organizer" }) {
+    memberships {
       edges {
         node {
-          id
-          name
-          urlname
-          status
-          membershipCount
+          membership {
+            role
+            group {
+              id
+              name
+              urlname
+              status
+              memberships {
+                count
+              }
+            }
+          }
         }
       }
     }
@@ -71,7 +78,9 @@ export const MEMBER_FIELDS = gql`
     name
     profileUrl
     joinedAt
-    role
+    membership {
+      role
+    }
   }
 `;
 
