@@ -1,4 +1,4 @@
-import { MeetupEvent, MeetupMember, Edge, BulkOperationProgress, BulkOperationResult } from '../types';
+import { MeetupEvent, Edge, BulkOperationProgress, BulkOperationResult } from '../types';
 import { client } from './graphql-client';
 import {
   GET_ORGANIZED_EVENTS,
