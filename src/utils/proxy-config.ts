@@ -26,15 +26,31 @@ const proxyServers: ProxyConfig[] = [
         const requestHeaders: Record<string, string> = {
           'Authorization': headers?.['Authorization'] || '',
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Origin': 'https://yashrajnayak.github.io',
+          'Referer': 'https://yashrajnayak.github.io/'
         };
+
+        // Ensure body is properly stringified
+        let body = options?.body;
+        if (body && typeof body === 'string') {
+          try {
+            // Verify it's valid JSON
+            JSON.parse(body);
+          } catch {
+            // If not valid JSON, stringify it
+            body = JSON.stringify(body);
+          }
+        }
 
         return {
           url: finalUrl,
           options: {
             method: 'POST',
             headers: requestHeaders,
-            body: options?.body
+            body,
+            credentials: 'include',
+            mode: 'cors'
           }
         };
       }
@@ -43,7 +59,9 @@ const proxyServers: ProxyConfig[] = [
       const requestHeaders: Record<string, string> = {
         ...(options?.headers as Record<string, string> || {}),
         'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Origin': 'https://yashrajnayak.github.io',
+        'Referer': 'https://yashrajnayak.github.io/'
       };
 
       return {
@@ -51,7 +69,9 @@ const proxyServers: ProxyConfig[] = [
         options: {
           ...(options || {}),
           method: options?.method || 'GET',
-          headers: requestHeaders
+          headers: requestHeaders,
+          credentials: 'include',
+          mode: 'cors'
         }
       };
     }
@@ -77,15 +97,29 @@ const proxyServers: ProxyConfig[] = [
         const authParam = auth ? `&authorization=${encodeURIComponent(auth)}` : '';
         const requestHeaders: Record<string, string> = {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
         };
+
+        // Ensure body is properly stringified
+        let body = options?.body;
+        if (body && typeof body === 'string') {
+          try {
+            // Verify it's valid JSON
+            JSON.parse(body);
+          } catch {
+            // If not valid JSON, stringify it
+            body = JSON.stringify(body);
+          }
+        }
 
         return {
           url: `${proxyServers[1].url}?url=${encodeURIComponent(targetUrl)}${authParam}`,
           options: {
             method: 'POST',
-            body: options?.body,
-            headers: requestHeaders
+            body,
+            headers: requestHeaders,
+            mode: 'cors'
           }
         };
       }
@@ -94,14 +128,16 @@ const proxyServers: ProxyConfig[] = [
       const authParam = auth ? `&authorization=${encodeURIComponent(auth)}` : '';
       const requestHeaders: Record<string, string> = {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
       };
 
       return { 
         url: `${proxyServers[1].url}?url=${encodeURIComponent(targetUrl)}${authParam}`,
         options: {
           method: options?.method || 'GET',
-          headers: requestHeaders
+          headers: requestHeaders,
+          mode: 'cors'
         }
       };
     }
@@ -118,12 +154,16 @@ export async function checkProxyHealth(proxy: ProxyConfig): Promise<boolean> {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
       'Access-Control-Request-Method': 'POST',
-      'Access-Control-Request-Headers': 'authorization,content-type'
+      'Access-Control-Request-Headers': 'authorization,content-type,origin,referer',
+      'Origin': 'https://yashrajnayak.github.io',
+      'Referer': 'https://yashrajnayak.github.io/'
     };
     
     let options: RequestInit = {
       method: 'OPTIONS',
-      headers
+      headers,
+      mode: 'cors',
+      credentials: 'include'
     };
 
     if (proxy.url === 'https://api.allorigins.win/raw') {
@@ -131,10 +171,12 @@ export async function checkProxyHealth(proxy: ProxyConfig): Promise<boolean> {
       // AllOrigins doesn't support OPTIONS, use GET instead
       options.method = 'GET';
       headers = {
+        'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        'X-Requested-With': 'XMLHttpRequest'
       };
       options.headers = headers;
+      options.credentials = undefined;
     } else {
       testUrl = `${proxy.url}/proxy/status`;
     }
