@@ -13,70 +13,34 @@ const proxyServers: ProxyConfig[] = [
     url: 'https://meetup-proxy.oneyashraj.workers.dev',
     priority: 1,
     isHealthy: true,
-    lastCheck: 0,
+    lastCheck: Date.now(),
     requiresCredentials: true
   },
   {
     url: 'https://api.allorigins.win/raw',
     priority: 2,
     isHealthy: true,
-    lastCheck: 0,
+    lastCheck: Date.now(),
     requiresCredentials: false,
     transformRequest: (url: string, options: RequestInit) => {
-      // Extract the actual endpoint from the proxy URL
-      let endpoint: string;
-      if (url.includes('/gql')) {
-        endpoint = 'https://api.meetup.com/gql';
-      } else {
-        const match = url.match(/\/proxy\/(.*?)(?:\?|$)/);
-        endpoint = match 
-          ? `https://api.meetup.com/${match[1]}`
-          : url.replace(/^.*?\/proxy\//, 'https://api.meetup.com/');
-      }
-
-      // Get auth token from headers
-      const authHeader = options.headers?.['Authorization'] as string;
-      const token = authHeader?.split(' ')[1] || '';
-
-      // Add token to URL for AllOrigins
-      const targetUrl = `${endpoint}${endpoint.includes('?') ? '&' : '?'}access_token=${token}`;
+      // Remove /proxy from the URL for AllOrigins
+      const endpoint = url.replace('/proxy/', '');
+      const targetUrl = new URL(endpoint);
       
-      console.log('AllOrigins target URL:', targetUrl);
-
-      // Create new headers without auth
-      const newHeaders = new Headers(options.headers);
-      newHeaders.delete('Authorization');
-
-      // For GraphQL, we need to handle the body differently
-      let newBody = options.body;
-      if (url.includes('/gql') && typeof options.body === 'string') {
-        try {
-          const parsedBody = JSON.parse(options.body);
-          // Add token to variables if they exist
-          if (parsedBody.variables) {
-            parsedBody.variables.access_token = token;
-          } else {
-            parsedBody.variables = { access_token: token };
-          }
-          newBody = JSON.stringify(parsedBody);
-          console.log('Transformed GraphQL body:', newBody);
-        } catch (e) {
-          console.warn('Failed to parse GraphQL body:', e);
-        }
+      // Handle auth token
+      if (options.headers?.['Authorization']) {
+        const token = options.headers['Authorization'].replace('Bearer ', '');
+        targetUrl.searchParams.append('access_token', token);
       }
-
-      const transformedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-      console.log('Final AllOrigins URL:', transformedUrl);
-
-      return {
-        url: transformedUrl,
-        options: {
-          ...options,
-          headers: newHeaders,
-          body: newBody,
-          credentials: 'omit'
-        }
-      };
+      
+      // Construct final URL
+      const finalUrl = `${proxyServers[1].url}?url=${encodeURIComponent(targetUrl.toString())}`;
+      
+      // Remove Authorization header as it's now in URL
+      const newOptions = { ...options };
+      delete newOptions.headers?.['Authorization'];
+      
+      return { url: finalUrl, options: newOptions };
     }
   }
 ];
@@ -84,50 +48,21 @@ const proxyServers: ProxyConfig[] = [
 const HEALTH_CHECK_INTERVAL = 60000; // 1 minute
 
 // Check proxy health
-async function checkProxyHealth(proxy: ProxyConfig): Promise<boolean> {
-  try {
-    if (proxy.url.includes('allorigins')) {
-      const testUrl = encodeURIComponent('https://api.meetup.com/status');
-      const response = await fetch(`${proxy.url}?url=${testUrl}`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        console.warn('AllOrigins health check failed:', {
-          status: response.status,
-          statusText: response.statusText
-        });
-        return false;
-      }
-      
-      return true;
-    }
+export function checkProxyHealth(proxy: ProxyConfig): Promise<boolean> {
+  const testUrl = proxy.url === proxyServers[1].url 
+    ? `${proxy.url}?url=${encodeURIComponent('https://api.meetup.com/status')}`
+    : `${proxy.url}/status`;
 
-    const response = await fetch(`${proxy.url}/proxy/ping`, {
-      method: 'OPTIONS',
-      headers: {
-        'Accept': 'application/json'
-      },
-      credentials: proxy.requiresCredentials ? 'include' : 'omit',
-      mode: 'cors'
-    });
-
-    if (!response.ok) {
-      console.warn('Cloudflare Worker health check failed:', {
-        status: response.status,
-        statusText: response.statusText
-      });
+  return fetch(testUrl)
+    .then(response => {
+      const isHealthy = response.ok;
+      console.log(`Health check for ${proxy.url}: ${isHealthy}`);
+      return isHealthy;
+    })
+    .catch(error => {
+      console.error(`Health check failed for ${proxy.url}:`, error);
       return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.warn(`Proxy health check failed for ${proxy.url}:`, error);
-    return false;
-  }
+    });
 }
 
 // Update proxy health status
@@ -199,7 +134,7 @@ export function markProxyUnhealthy(proxyUrl: string): void {
 export function resetProxyHealth(): void {
   proxyServers.forEach(proxy => {
     proxy.isHealthy = true;
-    proxy.lastCheck = 0;
+    proxy.lastCheck = Date.now();
   });
   console.log('Reset all proxy health statuses');
 } 

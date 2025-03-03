@@ -5,100 +5,59 @@ import { getHealthyProxy, getGraphQLEndpoint, markProxyUnhealthy, getProxyConfig
 
 // Custom fetch function that applies proxy transformations
 const customFetch = async (uri: string, options: RequestInit) => {
+  const proxyConfig = getProxyConfig(uri);
+  if (!proxyConfig) {
+    console.warn('No proxy configuration found');
+    throw new Error('No proxy configuration available');
+  }
+
+  let url = uri;
+  let fetchOptions = { ...options };
+
+  if (proxyConfig.transformRequest) {
+    const transformed = proxyConfig.transformRequest(uri, options);
+    url = transformed.url;
+    fetchOptions = transformed.options;
+  }
+
+  console.log(`Using proxy: ${proxyConfig.url} for request`);
+  
   try {
-    const proxyUrl = new URL(uri).origin;
-    const proxyConfig = getProxyConfig(proxyUrl);
+    const response = await fetch(url, fetchOptions);
     
-    if (!proxyConfig) {
-      console.warn('No proxy config found for:', proxyUrl);
-      return fetch(uri, options);
-    }
-
-    console.log('Using proxy:', proxyConfig.url, 'for URI:', uri);
-
-    const { url, options: transformedOptions } = transformRequest(proxyConfig.url, uri, options);
-    console.log('Transformed request:', { url, options: transformedOptions });
-
-    const response = await fetch(url, transformedOptions);
-
-    // Handle error responses
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Proxy error:', {
-        proxy: proxyConfig.url,
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText
-      });
+      const errorBody = await response.text();
+      console.error(`Proxy error: ${proxyConfig.url} returned ${response.status}`, errorBody);
       markProxyUnhealthy(proxyConfig.url);
-      throw new Error(`Proxy request failed: ${response.status} ${response.statusText}`);
+      throw new Error(`Proxy request failed: ${response.status}`);
     }
 
     return response;
   } catch (error) {
-    console.error('Fetch error:', error);
+    console.error(`Fetch error for ${proxyConfig.url}:`, error);
+    markProxyUnhealthy(proxyConfig.url);
     throw error;
   }
 };
 
 // Error handling link with proxy fallback
-const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) => {
-  if (graphQLErrors) {
-    for (const err of graphQLErrors) {
-      // Handle rate limiting
-      if (err.extensions?.code === 'RATE_LIMITED') {
-        const resetAt = err.extensions?.resetAt as string;
-        console.warn(`Rate limited until ${resetAt}`);
-        // Retry after the reset time
-        const waitTime = new Date(resetAt).getTime() - Date.now();
-        return new Promise(resolve => 
-          setTimeout(() => resolve(forward(operation)), waitTime)
-        );
-      }
-      
-      console.error(
-        `[GraphQL error]: Message: ${err.message}, Location: ${err.locations}, Path: ${err.path}`
-      );
-    }
-  }
+const errorLink = onError(({ networkError, operation, forward }) => {
   if (networkError) {
-    console.error(`[Network error]:`, networkError);
+    console.error('[Network error]:', networkError);
     
-    // Check if it's a proxy error
-    if ('status' in networkError && (
-      networkError.status === 530 || 
-      networkError.status === 403 || 
-      networkError.message?.includes('Proxy request failed')
-    )) {
-      const context = operation.getContext();
-      const currentProxy = new URL(context.uri).origin;
-      
-      console.log('Marking proxy as unhealthy:', currentProxy);
-      markProxyUnhealthy(currentProxy);
-      
-      // Try to get a new healthy proxy
-      return getHealthyProxy().then(proxyUrl => {
-        if (proxyUrl) {
-          const proxyConfig = getProxyConfig(proxyUrl);
-          if (!proxyConfig) {
-            throw new Error('Invalid proxy configuration');
-          }
-
-          console.log('Switching to proxy:', proxyUrl);
-          
-          // Update the operation with the new proxy
-          operation.setContext({
-            uri: getGraphQLEndpoint(proxyUrl),
-            credentials: proxyConfig.requiresCredentials ? 'include' : 'omit',
-            fetch: customFetch
-          });
-          
-          // Retry the operation
-          return forward(operation);
-        }
-        throw new Error('All proxies failed');
-      });
+    // Get a new healthy proxy
+    const newProxy = getHealthyProxy();
+    if (!newProxy) {
+      console.error('No healthy proxies available');
+      return;
     }
+
+    // Retry with new proxy
+    operation.setContext({
+      uri: `${newProxy.url}/proxy/gql`
+    });
+
+    return forward(operation);
   }
 });
 
