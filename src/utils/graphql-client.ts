@@ -20,8 +20,28 @@ async function customFetch(input: string | URL | Request, init?: RequestInit): P
     throw new Error('Invalid proxy configuration');
   }
 
+  // Ensure we have a proper GraphQL request
+  if (options.body) {
+    try {
+      const body = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+      if (!body.query) {
+        throw new Error('Missing GraphQL query');
+      }
+      // Re-stringify to ensure proper format
+      options.body = JSON.stringify(body);
+    } catch (error) {
+      console.error('Invalid GraphQL request body:', error);
+      throw new Error('Invalid GraphQL request');
+    }
+  }
+
   const { url, options: transformedOptions } = proxyConfig.transformRequest(uri, options);
-  console.log('Using proxy:', proxyConfig.url, 'for URI:', url);
+  console.log('Using proxy:', proxyConfig.url, 'for URI:', url, 'with options:', {
+    method: transformedOptions.method,
+    headers: transformedOptions.headers,
+    mode: transformedOptions.mode,
+    credentials: transformedOptions.credentials
+  });
 
   try {
     const response = await fetch(url, transformedOptions);
@@ -32,11 +52,13 @@ async function customFetch(input: string | URL | Request, init?: RequestInit): P
         proxy: proxyConfig.url,
         status: response.status,
         statusText: response.statusText,
-        body: errorBody
+        body: errorBody,
+        url,
+        options: transformedOptions
       });
 
       // Mark proxy as unhealthy for specific error conditions
-      if (response.status === 530 || response.status === 403 || errorBody.includes('error code: 1016')) {
+      if (response.status === 530 || response.status === 403 || response.status === 400 || errorBody.includes('error code: 1016')) {
         updateProxyHealth(proxyConfig.url, false);
       }
 
