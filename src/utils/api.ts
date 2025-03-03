@@ -49,18 +49,18 @@ export async function fetchOrganizedEvents(token: string): Promise<MeetupEvent[]
       return [];
     }
 
-    // Check if user has any organizer roles in their memberships
-    const hasOrganizerRole = data.self.memberships?.edges?.some(
+    // Filter for organizer roles client-side
+    const organizerMemberships = data.self.memberships?.edges?.filter(
       (edge: MembershipEdge) => edge.node.role === 'ORGANIZER' || edge.node.role === 'CO_ORGANIZER'
-    );
-    
-    if (!hasOrganizerRole) {
-      console.log('User is not an organizer of any groups');
-      return [];
-    }
+    ) || [];
+
+    console.log('Organizer memberships:', organizerMemberships);
 
     // Extract events from the response
     const events = data.self.hostedEvents?.edges?.map((edge: EventEdge) => edge.node) || [];
+    
+    console.log('Hosted events:', events);
+    
     return events;
   } catch (error) {
     console.error('Error fetching organized events:', error);
