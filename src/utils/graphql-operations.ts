@@ -10,6 +10,7 @@ export const USER_FIELDS = gql`
     memberships {
       edges {
         node {
+          id
           role
           group {
             id
@@ -63,7 +64,14 @@ export const MEMBER_FIELDS = gql`
     id
     name
     joinedAt
-    role
+    memberships {
+      edges {
+        node {
+          id
+          role
+        }
+      }
+    }
   }
 `;
 
@@ -78,6 +86,7 @@ export const GET_SELF = gql`
       memberships {
         edges {
           node {
+            id
             role
             group {
               id
@@ -103,6 +112,7 @@ export const GET_ORGANIZED_EVENTS = gql`
       memberships {
         edges {
           node {
+            id
             role
             group {
               id
@@ -158,8 +168,15 @@ export const GET_EVENT_MEMBERS = gql`
           node {
             id
             name
-            role
             joinedAt
+            memberships {
+              edges {
+                node {
+                  id
+                  role
+                }
+              }
+            }
           }
         }
         pageInfo {
@@ -223,7 +240,14 @@ export const BULK_UPDATE_MEMBER_STATUS = gql`
         id
         name
         joinedAt
-        role
+        memberships {
+          edges {
+            node {
+              id
+              role
+            }
+          }
+        }
       }
       errors {
         message
