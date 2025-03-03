@@ -1,6 +1,6 @@
 import { gql } from '@apollo/client';
 
-// Fragments for reusable pieces
+// Base fragments for reusable pieces
 export const GROUP_FIELDS = gql`
   fragment GroupFields on Group {
     id
@@ -24,6 +24,7 @@ export const USER_FIELDS = gql`
         node {
           id
           status
+          role
           group {
             id
             name
@@ -57,7 +58,7 @@ export const EVENT_FIELDS = gql`
       lat
       lng
     }
-    group {
+    organizer {
       id
       name
       urlname
@@ -81,6 +82,7 @@ export const MEMBER_FIELDS = gql`
         node {
           id
           status
+          role
         }
       }
     }
@@ -91,29 +93,10 @@ export const MEMBER_FIELDS = gql`
 export const GET_SELF = gql`
   query GetSelf {
     self {
-      id
-      name
-      email
-      bio
-      memberships {
-        edges {
-          node {
-            id
-            status
-            group {
-              id
-              name
-              urlname
-              status
-              memberships {
-                count
-              }
-            }
-          }
-        }
-      }
+      ...UserFields
     }
   }
+  ${USER_FIELDS}
 `;
 
 export const GET_ORGANIZED_EVENTS = gql`
@@ -126,6 +109,7 @@ export const GET_ORGANIZED_EVENTS = gql`
           node {
             id
             status
+            role
             group {
               id
               name
@@ -157,7 +141,7 @@ export const GET_ORGANIZED_EVENTS = gql`
               lat
               lng
             }
-            group {
+            organizer {
               id
               name
               urlname
@@ -182,17 +166,7 @@ export const GET_EVENT_MEMBERS = gql`
       members(first: $first, after: $after) {
         edges {
           node {
-            id
-            name
-            joinedAt
-            memberships {
-              edges {
-                node {
-                  id
-                  status
-                }
-              }
-            }
+            ...MemberFields
           }
         }
         pageInfo {
@@ -203,6 +177,7 @@ export const GET_EVENT_MEMBERS = gql`
       }
     }
   }
+  ${MEMBER_FIELDS}
 `;
 
 export const GET_EVENT_WAITLIST = gql`
@@ -214,17 +189,7 @@ export const GET_EVENT_WAITLIST = gql`
           node {
             id
             member {
-              id
-              name
-              joinedAt
-              memberships {
-                edges {
-                  node {
-                    id
-                    status
-                  }
-                }
-              }
+              ...MemberFields
             }
           }
         }
@@ -236,6 +201,7 @@ export const GET_EVENT_WAITLIST = gql`
       }
     }
   }
+  ${MEMBER_FIELDS}
 `;
 
 // Mutations
@@ -243,33 +209,7 @@ export const UPDATE_MEMBER_STATUS = gql`
   mutation UpdateMemberStatus($input: RsvpInput!) {
     rsvp(input: $input) {
       event {
-        id
-        title
-        description
-        dateTime
-        eventType
-        status
-        venue {
-          id
-          name
-          address
-          city
-          state
-          country
-          lat
-          lng
-        }
-        group {
-          id
-          name
-          urlname
-          status
-          memberships {
-            count
-          }
-        }
-        going
-        maxTickets
+        ...EventFields
       }
       errors {
         message
@@ -277,23 +217,14 @@ export const UPDATE_MEMBER_STATUS = gql`
       }
     }
   }
+  ${EVENT_FIELDS}
 `;
 
 export const BULK_UPDATE_MEMBER_STATUS = gql`
   mutation BulkUpdateMemberStatus($input: RsvpInput!) {
     rsvp(input: $input) {
       member {
-        id
-        name
-        joinedAt
-        memberships {
-          edges {
-            node {
-              id
-              status
-            }
-          }
-        }
+        ...MemberFields
       }
       errors {
         message
@@ -301,4 +232,5 @@ export const BULK_UPDATE_MEMBER_STATUS = gql`
       }
     }
   }
+  ${MEMBER_FIELDS}
 `;
