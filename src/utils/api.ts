@@ -48,25 +48,25 @@ export const fetchOrganizedEvents = async (accessToken: string): Promise<MeetupE
       return [];
     }
 
-    // hostedEvents is now a direct array, no need to process edges
-    const events = data.self.hostedEvents.map((event: any) => ({
-      id: event.id,
-      title: event.title,
-      description: event.description,
-      dateTime: event.dateTime,
-      duration: event.duration,
-      status: event.status,
-      eventType: event.eventType,
-      venue: event.venue,
+    // Process the connection pattern response
+    const events = data.self.hostedEvents.edges.map((edge: Edge<any>) => ({
+      id: edge.node.id,
+      title: edge.node.title,
+      description: edge.node.description,
+      dateTime: edge.node.dateTime,
+      duration: edge.node.duration,
+      status: edge.node.status,
+      eventType: edge.node.eventType,
+      venue: edge.node.venue,
       group: {
-        ...event.group,
-        membershipCount: event.group.memberships?.count || 0
+        ...edge.node.group,
+        membershipCount: edge.node.group.memberships?.count || 0
       },
-      going: event.going || 0,
-      waitlist: event.waiting || 0,
-      maxTickets: event.maxTickets,
-      fee: event.fee,
-      images: event.images,
+      going: edge.node.going || 0,
+      waitlist: edge.node.waiting || 0,
+      maxTickets: edge.node.maxTickets,
+      fee: edge.node.fee,
+      images: edge.node.images,
     }));
 
     return events;

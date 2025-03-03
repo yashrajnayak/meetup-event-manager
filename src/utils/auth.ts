@@ -122,15 +122,15 @@ export const handleAuthCallback = (): AuthState | null => {
   return authState;
 };
 
-const GET_SELF_QUERY = gql`
-  query GetSelf {
+const GET_USER_PROFILE = gql`
+  query GetUserProfile {
     self {
       id
       name
       email
-      photo {
-        highres
-      }
+      bio
+      isProMember
+      isOrganizer
     }
   }
 `;
@@ -138,7 +138,7 @@ const GET_SELF_QUERY = gql`
 export async function fetchUserProfile(token: string): Promise<any> {
   try {
     const response = await client.query({
-      query: GET_SELF_QUERY,
+      query: GET_USER_PROFILE,
       context: {
         headers: {
           'Authorization': `Bearer ${token}`

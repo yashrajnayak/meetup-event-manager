@@ -79,43 +79,54 @@ export const GET_ORGANIZED_EVENTS = gql`
     self {
       isOrganizer
       hostedEvents {
-        id
-        title
-        description
-        dateTime
-        duration
-        status
-        eventType
-        venue {
-          id
-          name
-          address
-          city
-          state
-          country
-          lat
-          lng
-          radius
-        }
-        group {
-          id
-          name
-          urlname
-          description
-          link
-          status
-          memberships {
-            count
+        edges {
+          node {
+            id
+            title
+            description
+            dateTime
+            duration
+            status
+            eventType
+            venue {
+              id
+              name
+              address
+              city
+              state
+              country
+              lat
+              lng
+              radius
+            }
+            group {
+              id
+              name
+              urlname
+              description
+              link
+              status
+              memberships {
+                count
+              }
+            }
+            going
+            waiting
+            maxTickets
+            fee
+            images {
+              id
+              baseUrl
+            }
           }
         }
-        going
-        waiting
-        maxTickets
-        fee
-        images {
-          id
-          baseUrl
+        pageInfo {
+          hasNextPage
+          hasPreviousPage
+          startCursor
+          endCursor
         }
+        count
       }
     }
   }
