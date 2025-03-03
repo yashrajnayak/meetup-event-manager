@@ -20,6 +20,23 @@ const proxyServers: ProxyConfig[] = [
       const path = url.includes('/gql') ? '/gql' : url.replace(baseUrl, '');
       const finalUrl = `${proxyServers[0].url}/proxy${path}`;
       
+      // For GraphQL requests
+      if (url.includes('/gql')) {
+        return {
+          url: finalUrl,
+          options: {
+            ...(options || {}),
+            method: 'POST',
+            headers: {
+              ...options?.headers,
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            }
+          }
+        };
+      }
+      
+      // For REST requests
       return {
         url: finalUrl,
         options: {
@@ -57,14 +74,13 @@ const proxyServers: ProxyConfig[] = [
           ...body,
           extensions: {
             ...body.extensions,
-            authorization: auth
+            authorization: auth?.replace('Bearer ', '') // Remove 'Bearer ' prefix
           }
         };
 
         return {
           url: `${proxyServers[1].url}?url=${encodeURIComponent(targetUrl)}`,
           options: {
-            ...(options || {}),
             method: 'POST',
             body: JSON.stringify(newBody),
             headers: {
@@ -75,11 +91,11 @@ const proxyServers: ProxyConfig[] = [
         };
       }
       
-      // For REST endpoints
+      // For REST endpoints, include auth in the URL
+      const authParam = auth ? `&authorization=${encodeURIComponent(auth.replace('Bearer ', ''))}` : '';
       return { 
-        url: `${proxyServers[1].url}?url=${encodeURIComponent(targetUrl)}`,
+        url: `${proxyServers[1].url}?url=${encodeURIComponent(targetUrl)}${authParam}`,
         options: {
-          ...(options || {}),
           method: options?.method || 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -97,25 +113,39 @@ const HEALTH_CHECK_INTERVAL = 60000; // 1 minute
 export async function checkProxyHealth(proxy: ProxyConfig): Promise<boolean> {
   try {
     let testUrl: string;
+    let headers: Record<string, string> = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': 'authorization,content-type'
+    };
+    
     let options: RequestInit = {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json'
-      }
+      method: 'OPTIONS',
+      headers
     };
 
     if (proxy.url === 'https://api.allorigins.win/raw') {
       testUrl = `${proxy.url}?url=${encodeURIComponent('https://api.meetup.com/status')}`;
-    } else {
-      testUrl = `${proxy.url}/proxy/status`;
-      options.headers = {
-        ...options.headers,
+      // AllOrigins doesn't support OPTIONS, use GET instead
+      options.method = 'GET';
+      headers = {
+        'Accept': 'application/json',
         'Content-Type': 'application/json'
       };
+      options.headers = headers;
+    } else {
+      testUrl = `${proxy.url}/proxy/status`;
     }
 
-    console.log('Checking health for proxy:', proxy.url);
+    console.log('Checking health for proxy:', proxy.url, 'with options:', options);
     const response = await fetch(testUrl, options);
+
+    // For OPTIONS request, 204 or 200 is success
+    if (options.method === 'OPTIONS' && (response.status === 204 || response.status === 200)) {
+      console.log('OPTIONS request successful for proxy:', proxy.url);
+      return true;
+    }
 
     if (!response.ok) {
       console.warn(`Health check failed for proxy ${proxy.url}:`, {
@@ -129,7 +159,7 @@ export async function checkProxyHealth(proxy: ProxyConfig): Promise<boolean> {
       const contentType = response.headers.get('content-type');
       const isValidResponse = contentType?.includes('application/json') || 
                             contentType?.includes('text/plain') ||
-                            contentType?.includes('text/html'); // Some proxies might return HTML
+                            contentType?.includes('text/html');
 
       if (!isValidResponse) {
         console.warn(`Invalid content type from proxy ${proxy.url}:`, contentType);
@@ -137,18 +167,20 @@ export async function checkProxyHealth(proxy: ProxyConfig): Promise<boolean> {
       }
 
       const text = await response.text();
+      
+      // For AllOrigins, any valid response is good
+      if (proxy.url === 'https://api.allorigins.win/raw') {
+        return true;
+      }
+
       // Try to parse as JSON if possible
       try {
         JSON.parse(text);
+        return true;
       } catch {
         // If not JSON, check if it's a valid response
-        if (!text.includes('status') && !text.includes('ok')) {
-          console.warn(`Invalid response from proxy ${proxy.url}:`, text);
-          return false;
-        }
+        return text.includes('status') || text.includes('ok');
       }
-
-      return true;
     } catch (parseError) {
       console.warn(`Error parsing response from proxy ${proxy.url}:`, parseError);
       return false;
