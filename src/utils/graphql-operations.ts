@@ -91,10 +91,29 @@ export const MEMBER_FIELDS = gql`
 export const GET_SELF = gql`
   query GetSelf {
     self {
-      ...UserFields
+      id
+      name
+      email
+      bio
+      memberships {
+        edges {
+          node {
+            id
+            status
+            group {
+              id
+              name
+              urlname
+              status
+              memberships {
+                count
+              }
+            }
+          }
+        }
+      }
     }
   }
-  ${USER_FIELDS}
 `;
 
 export const GET_ORGANIZED_EVENTS = gql`
@@ -163,30 +182,16 @@ export const GET_EVENT_MEMBERS = gql`
       members(first: $first, after: $after) {
         edges {
           node {
-            ...MemberFields
-          }
-        }
-        pageInfo {
-          hasNextPage
-          endCursor
-        }
-        count
-      }
-    }
-  }
-  ${MEMBER_FIELDS}
-`;
-
-export const GET_EVENT_WAITLIST = gql`
-  query GetEventWaitlist($eventId: ID!, $first: Int!, $after: String) {
-    event(id: $eventId) {
-      id
-      tickets(first: $first, after: $after, status: [WAITLIST]) {
-        edges {
-          node {
             id
-            member {
-              ...MemberFields
+            name
+            joinedAt
+            memberships {
+              edges {
+                node {
+                  id
+                  status
+                }
+              }
             }
           }
         }
@@ -198,7 +203,39 @@ export const GET_EVENT_WAITLIST = gql`
       }
     }
   }
-  ${MEMBER_FIELDS}
+`;
+
+export const GET_EVENT_WAITLIST = gql`
+  query GetEventWaitlist($eventId: ID!, $first: Int!, $after: String) {
+    event(id: $eventId) {
+      id
+      tickets(first: $first, after: $after, status: [WAITLIST]) {
+        edges {
+          node {
+            id
+            member {
+              id
+              name
+              joinedAt
+              memberships {
+                edges {
+                  node {
+                    id
+                    status
+                  }
+                }
+              }
+            }
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        count
+      }
+    }
+  }
 `;
 
 // Mutations
@@ -206,7 +243,33 @@ export const UPDATE_MEMBER_STATUS = gql`
   mutation UpdateMemberStatus($input: RsvpInput!) {
     rsvp(input: $input) {
       event {
-        ...EventFields
+        id
+        title
+        description
+        dateTime
+        eventType
+        status
+        venue {
+          id
+          name
+          address
+          city
+          state
+          country
+          lat
+          lng
+        }
+        group {
+          id
+          name
+          urlname
+          status
+          memberships {
+            count
+          }
+        }
+        going
+        maxTickets
       }
       errors {
         message
@@ -214,15 +277,23 @@ export const UPDATE_MEMBER_STATUS = gql`
       }
     }
   }
-  ${EVENT_FIELDS}
 `;
 
-// Bulk update mutation - using the same mutation but keeping it separate for clarity
 export const BULK_UPDATE_MEMBER_STATUS = gql`
   mutation BulkUpdateMemberStatus($input: RsvpInput!) {
     rsvp(input: $input) {
       member {
-        ...MemberFields
+        id
+        name
+        joinedAt
+        memberships {
+          edges {
+            node {
+              id
+              status
+            }
+          }
+        }
       }
       errors {
         message
@@ -230,5 +301,4 @@ export const BULK_UPDATE_MEMBER_STATUS = gql`
       }
     }
   }
-  ${MEMBER_FIELDS}
 `;
