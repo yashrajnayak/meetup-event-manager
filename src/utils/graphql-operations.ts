@@ -27,11 +27,25 @@ export const USER_FIELDS = gql`
     bio
     memberships {
       edges {
-        ...MembershipFields
+        node {
+          id
+          membershipInfo {
+            role
+            status
+          }
+          group {
+            id
+            name
+            urlname
+            status
+            memberships {
+              count
+            }
+          }
+        }
       }
     }
   }
-  ${MEMBERSHIP_FIELDS}
 `;
 
 export const EVENT_FIELDS = gql`
@@ -73,11 +87,16 @@ export const MEMBER_FIELDS = gql`
     joinedAt
     memberships {
       edges {
-        ...MembershipFields
+        node {
+          id
+          membershipInfo {
+            role
+            status
+          }
+        }
       }
     }
   }
-  ${MEMBERSHIP_FIELDS}
 `;
 
 // Queries
@@ -97,7 +116,22 @@ export const GET_ORGANIZED_EVENTS = gql`
       name
       memberships {
         edges {
-          ...MembershipFields
+          node {
+            id
+            membershipInfo {
+              role
+              status
+            }
+            group {
+              id
+              name
+              urlname
+              status
+              memberships {
+                count
+              }
+            }
+          }
         }
       }
       hostedEvents {
@@ -109,7 +143,6 @@ export const GET_ORGANIZED_EVENTS = gql`
       }
     }
   }
-  ${MEMBERSHIP_FIELDS}
   ${EVENT_FIELDS}
 `;
 
