@@ -1,20 +1,14 @@
 import { gql } from '@apollo/client';
 
 // Fragments for reusable pieces
-export const MEMBERSHIP_FIELDS = gql`
-  fragment MembershipFields on MembershipEdge {
-    node {
-      id
-      status
-      group {
-        id
-        name
-        urlname
-        status
-        memberships {
-          count
-        }
-      }
+export const GROUP_FIELDS = gql`
+  fragment GroupFields on Group {
+    id
+    name
+    urlname
+    status
+    memberships {
+      count
     }
   }
 `;
@@ -29,23 +23,18 @@ export const USER_FIELDS = gql`
       edges {
         node {
           id
+          group {
+            ...GroupFields
+          }
           membershipInfo {
             role
             status
-          }
-          group {
-            id
-            name
-            urlname
-            status
-            memberships {
-              count
-            }
           }
         }
       }
     }
   }
+  ${GROUP_FIELDS}
 `;
 
 export const EVENT_FIELDS = gql`
@@ -67,17 +56,12 @@ export const EVENT_FIELDS = gql`
       lng
     }
     group {
-      id
-      name
-      urlname
-      status
-      memberships {
-        count
-      }
+      ...GroupFields
     }
     going
     maxTickets
   }
+  ${GROUP_FIELDS}
 `;
 
 export const MEMBER_FIELDS = gql`
@@ -118,18 +102,12 @@ export const GET_ORGANIZED_EVENTS = gql`
         edges {
           node {
             id
+            group {
+              ...GroupFields
+            }
             membershipInfo {
               role
               status
-            }
-            group {
-              id
-              name
-              urlname
-              status
-              memberships {
-                count
-              }
             }
           }
         }
@@ -143,6 +121,7 @@ export const GET_ORGANIZED_EVENTS = gql`
       }
     }
   }
+  ${GROUP_FIELDS}
   ${EVENT_FIELDS}
 `;
 
