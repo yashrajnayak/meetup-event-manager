@@ -54,10 +54,7 @@ export interface MeetupEvent {
   going: number;
   waitlist: number;
   maxTickets?: number;
-  fee?: {
-    amount: number;
-    currency: string;
-  };
+  fee?: number;
   images?: Array<{
     id: string;
     baseUrl: string;

@@ -36,9 +36,6 @@ export const fetchOrganizedEvents = async (accessToken: string): Promise<MeetupE
   try {
     const { data } = await client.query({
       query: GET_ORGANIZED_EVENTS,
-      variables: {
-        first: 20, // Adjust based on your needs
-      },
       context: {
         headers: {
           'Authorization': `Bearer ${accessToken}`
@@ -51,9 +48,26 @@ export const fetchOrganizedEvents = async (accessToken: string): Promise<MeetupE
       return [];
     }
 
-    const events = data.self.hostedEvents.edges.map((edge: Edge<any>) => 
-      processEventData(edge.node)
-    );
+    // hostedEvents is now a direct array, no need to process edges
+    const events = data.self.hostedEvents.map((event: any) => ({
+      id: event.id,
+      title: event.title,
+      description: event.description,
+      dateTime: event.dateTime,
+      duration: event.duration,
+      status: event.status,
+      eventType: event.eventType,
+      venue: event.venue,
+      group: {
+        ...event.group,
+        membershipCount: event.group.memberships?.count || 0
+      },
+      going: event.going || 0,
+      waitlist: event.waiting || 0,
+      maxTickets: event.maxTickets,
+      fee: event.fee,
+      images: event.images,
+    }));
 
     return events;
   } catch (error) {

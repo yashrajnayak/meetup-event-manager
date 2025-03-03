@@ -9,7 +9,6 @@ export const USER_FIELDS = gql`
     bio
     isProMember
     isOrganizer
-    photoUrl
   }
 `;
 
@@ -47,10 +46,7 @@ export const EVENT_FIELDS = gql`
     going
     waiting
     maxTickets
-    fee {
-      amount
-      currency
-    }
+    fee
     images {
       id
       baseUrl
@@ -79,27 +75,50 @@ export const GET_SELF = gql`
 `;
 
 export const GET_ORGANIZED_EVENTS = gql`
-  query GetOrganizedEvents($first: Int!, $after: String) {
+  query GetOrganizedEvents {
     self {
       isOrganizer
-      hostedEvents(first: $first, after: $after) {
-        edges {
-          node {
-            ...EventFields
+      hostedEvents {
+        id
+        title
+        description
+        dateTime
+        duration
+        status
+        eventType
+        venue {
+          id
+          name
+          address
+          city
+          state
+          country
+          lat
+          lng
+          radius
+        }
+        group {
+          id
+          name
+          urlname
+          description
+          link
+          status
+          memberships {
+            count
           }
-          cursor
         }
-        pageInfo {
-          hasNextPage
-          hasPreviousPage
-          startCursor
-          endCursor
+        going
+        waiting
+        maxTickets
+        fee
+        images {
+          id
+          baseUrl
         }
-        count
       }
     }
   }
-  ${EVENT_FIELDS}
 `;
 
 export const GET_EVENT_MEMBERS = gql`
