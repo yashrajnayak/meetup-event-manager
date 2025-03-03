@@ -2,14 +2,24 @@ import { AuthState } from '../types';
 
 // Constants
 const MEETUP_API_URL = 'https://api.meetup.com';
-const REDIRECT_URI = 'https://yashrajnayak.github.io/meetup';
+const BASE_URL = 'https://yashrajnayak.github.io';
+const APP_PATH = '/meetup';
+const REDIRECT_URI = `${BASE_URL}${APP_PATH}`;
 const STORAGE_KEY = 'meetup_auth';
 
 // Get client ID from environment variables
 const CLIENT_ID = import.meta.env.VITE_MEETUP_CLIENT_ID;
 if (!CLIENT_ID) {
-  console.error('Missing VITE_MEETUP_CLIENT_ID environment variable');
+  throw new Error('Missing VITE_MEETUP_CLIENT_ID environment variable');
 }
+
+// Debug logging for deployment
+console.log('Environment:', {
+  baseUrl: BASE_URL,
+  appPath: APP_PATH,
+  redirectUri: REDIRECT_URI,
+  hasClientId: !!CLIENT_ID,
+});
 
 // Auth state management
 export const initialAuthState: AuthState = {
@@ -50,11 +60,16 @@ export const clearAuth = (): void => {
 export const loginWithMeetup = (): void => {
   const scope = 'basic event_management';
   const authUrl = `https://secure.meetup.com/oauth2/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scope}`;
+  
+  // Debug log
+  console.log('Initiating login, redirect URI:', REDIRECT_URI);
+  
   window.location.href = authUrl;
 };
 
 // Handle auth callback
 export const handleAuthCallback = (): AuthState | null => {
+  console.log('Handling auth callback, hash:', window.location.hash); // Debug log
   const hash = window.location.hash;
   if (!hash || !hash.includes('access_token')) return null;
 
@@ -63,15 +78,20 @@ export const handleAuthCallback = (): AuthState | null => {
   
   if (!accessToken) return null;
 
-  // Clear hash from URL
-  window.history.replaceState(null, '', window.location.pathname);
+  // Clear hash from URL but maintain the base path
+  window.history.replaceState(null, '', APP_PATH);
   
-  return {
+  const authState = {
     isAuthenticated: true,
     accessToken,
     user: null,
     error: null,
   };
+
+  // Debug log
+  console.log('Auth successful:', { isAuthenticated: true, hasToken: !!accessToken });
+
+  return authState;
 };
 
 // Fetch user profile
