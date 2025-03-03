@@ -5,15 +5,34 @@ import { getHealthyProxy, getGraphQLEndpoint, markProxyUnhealthy, getProxyConfig
 
 // Custom fetch function that applies proxy transformations
 const customFetch = async (uri: string, options: RequestInit) => {
-  const proxyUrl = new URL(uri).origin + '/proxy';
-  const proxyConfig = getProxyConfig(proxyUrl);
-  
-  if (!proxyConfig) {
-    return fetch(uri, options);
-  }
+  try {
+    const proxyUrl = new URL(uri).origin + '/proxy';
+    const proxyConfig = getProxyConfig(proxyUrl);
+    
+    if (!proxyConfig) {
+      return fetch(uri, options);
+    }
 
-  const { url, options: transformedOptions } = transformRequest(proxyUrl, uri, options);
-  return fetch(url, transformedOptions);
+    const { url, options: transformedOptions } = transformRequest(proxyUrl, uri, options);
+    const response = await fetch(url, transformedOptions);
+
+    // Handle AllOrigins error responses
+    if (!response.ok && proxyConfig.url.includes('allorigins')) {
+      const errorText = await response.text();
+      console.error('AllOrigins error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
+      markProxyUnhealthy(proxyConfig.url);
+      throw new Error(`AllOrigins request failed: ${response.status} ${response.statusText}`);
+    }
+
+    return response;
+  } catch (error) {
+    console.error('Fetch error:', error);
+    throw error;
+  }
 };
 
 // Error handling link with proxy fallback
@@ -39,8 +58,8 @@ const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) 
   if (networkError) {
     console.error(`[Network error]:`, networkError);
     
-    // Check if it's a proxy error (status 530)
-    if ('status' in networkError && networkError.status === 530) {
+    // Check if it's a proxy error (status 530 or AllOrigins error)
+    if ('status' in networkError && (networkError.status === 530 || networkError.message?.includes('AllOrigins'))) {
       const context = operation.getContext();
       const currentProxy = new URL(context.uri).origin + '/proxy';
       
@@ -75,7 +94,11 @@ const retryLink = new RetryLink({
   },
   attempts: {
     max: 5,
-    retryIf: (error, _operation) => !!error
+    retryIf: (error, _operation) => {
+      // Don't retry if all proxies have failed
+      if (error.message === 'All proxies failed') return false;
+      return true;
+    }
   },
 });
 
