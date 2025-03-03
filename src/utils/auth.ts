@@ -137,13 +137,20 @@ export const fetchUserProfile = async (accessToken: string): Promise<AuthState> 
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
-      credentials: 'include',
       mode: 'cors',
+      credentials: 'include'
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch user profile');
+      const errorText = await response.text();
+      console.error('Profile fetch error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
+      throw new Error(`Failed to fetch user profile: ${response.status} ${response.statusText}`);
     }
 
     const user = await response.json();

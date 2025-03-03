@@ -52,9 +52,13 @@ export const createApolloClient = (token: string) => {
         uri: PROXY_URL,
         credentials: 'include',
         headers: {
-          authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
+        fetchOptions: {
+          mode: 'cors'
+        }
       }),
     ]),
     cache: new InMemoryCache(),
