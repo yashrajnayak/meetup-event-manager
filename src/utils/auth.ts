@@ -165,6 +165,7 @@ const GET_USER_PROFILE = gql`
       memberships {
         edges {
           node {
+            role
             group {
               id
               name
@@ -174,7 +175,35 @@ const GET_USER_PROFILE = gql`
                 count
               }
             }
-            role
+          }
+        }
+      }
+      hostedEvents {
+        edges {
+          node {
+            id
+            title
+            description
+            dateTime
+            eventType
+            status
+            group {
+              id
+              name
+              urlname
+            }
+            going
+            maxTickets
+            venue {
+              id
+              name
+              address
+              city
+              state
+              country
+              lat
+              lng
+            }
           }
         }
       }

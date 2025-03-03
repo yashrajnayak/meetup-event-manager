@@ -1,13 +1,6 @@
 export interface GraphQLError {
   message: string;
-  locations: { line: number; column: number }[];
-  path: string[];
-  extensions: {
-    code: string;
-    consumedPoints?: number;
-    resetAt?: string;
-    [key: string]: unknown;
-  };
+  code: string;
 }
 
 export interface MeetupUser {
@@ -31,6 +24,11 @@ export interface MeetupUser {
       };
     }>;
   };
+  hostedEvents?: {
+    edges: Array<{
+      node: MeetupEvent;
+    }>;
+  };
 }
 
 export interface MeetupVenue {
@@ -42,17 +40,16 @@ export interface MeetupVenue {
   country: string;
   lat?: number;
   lng?: number;
-  radius?: number;
 }
 
 export interface MeetupGroup {
   id: string;
   name: string;
   urlname: string;
-  description?: string;
-  link: string;
   status: string;
-  membershipCount: number;
+  memberships: {
+    count: number;
+  };
 }
 
 export interface MeetupEvent {
@@ -60,28 +57,19 @@ export interface MeetupEvent {
   title: string;
   description?: string;
   dateTime: string;
-  duration?: number;
-  status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED';
   eventType: 'ONLINE' | 'IN_PERSON' | 'HYBRID';
-  venue?: MeetupVenue;
+  status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED';
   group: MeetupGroup;
   going: number;
-  waitlist: number;
   maxTickets?: number;
-  fee?: number;
-  images?: Array<{
-    id: string;
-    baseUrl: string;
-  }>;
+  venue?: MeetupVenue;
 }
 
 export interface MeetupMember {
   id: string;
   name: string;
-  profileUrl: string;
-  status: 'going' | 'waitlist' | 'not_found';
-  joinedAt?: string;
   role?: 'MEMBER' | 'ORGANIZER' | 'CO_ORGANIZER' | 'EVENT_ORGANIZER';
+  joinedAt?: string;
 }
 
 export interface AuthState {
@@ -103,17 +91,13 @@ export interface AppState {
   };
 }
 
-// GraphQL specific types
 export interface PageInfo {
   hasNextPage: boolean;
-  hasPreviousPage: boolean;
-  startCursor: string;
   endCursor: string;
 }
 
 export interface Edge<T> {
   node: T;
-  cursor: string;
 }
 
 export interface Connection<T> {
@@ -137,4 +121,12 @@ export interface BulkOperationProgress {
 export interface BulkOperationResult {
   success: string[];
   failed: string[];
+}
+
+export interface RsvpInput {
+  eventId: string;
+  response: 'YES' | 'NO';
+  proEmailShareOptin: boolean;
+  guestsCount: number;
+  optToPay: boolean;
 }

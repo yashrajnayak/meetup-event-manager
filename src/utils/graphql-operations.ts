@@ -88,7 +88,22 @@ export const GET_SELF = gql`
 export const GET_ORGANIZED_EVENTS = gql`
   query GetOrganizedEvents {
     self {
-      isOrganizer
+      memberships {
+        edges {
+          node {
+            role
+            group {
+              id
+              name
+              urlname
+              status
+              memberships {
+                count
+              }
+            }
+          }
+        }
+      }
       hostedEvents {
         edges {
           node {
@@ -96,9 +111,15 @@ export const GET_ORGANIZED_EVENTS = gql`
             title
             description
             dateTime
-            duration
-            status
             eventType
+            status
+            group {
+              id
+              name
+              urlname
+            }
+            going
+            maxTickets
             venue {
               id
               name
@@ -108,36 +129,9 @@ export const GET_ORGANIZED_EVENTS = gql`
               country
               lat
               lng
-              radius
-            }
-            group {
-              id
-              name
-              urlname
-              description
-              link
-              status
-              memberships {
-                count
-              }
-            }
-            going
-            waiting
-            maxTickets
-            fee
-            images {
-              id
-              baseUrl
             }
           }
         }
-        pageInfo {
-          hasNextPage
-          hasPreviousPage
-          startCursor
-          endCursor
-        }
-        count
       }
     }
   }
@@ -150,22 +144,20 @@ export const GET_EVENT_MEMBERS = gql`
       members(first: $first, after: $after) {
         edges {
           node {
-            ...MemberFields
-            status
+            id
+            name
+            role
+            joinedAt
           }
-          cursor
         }
         pageInfo {
           hasNextPage
-          hasPreviousPage
-          startCursor
           endCursor
         }
         count
       }
     }
   }
-  ${MEMBER_FIELDS}
 `;
 
 export const GET_EVENT_WAITLIST = gql`
@@ -175,39 +167,37 @@ export const GET_EVENT_WAITLIST = gql`
       waiting(first: $first, after: $after) {
         edges {
           node {
-            ...MemberFields
+            id
+            name
+            joinedAt
           }
-          cursor
         }
         pageInfo {
           hasNextPage
-          hasPreviousPage
-          startCursor
           endCursor
         }
         count
       }
     }
   }
-  ${MEMBER_FIELDS}
 `;
 
 // Mutations
 export const UPDATE_MEMBER_STATUS = gql`
   mutation UpdateMemberStatus($input: RsvpInput!) {
     rsvp(input: $input) {
-      member {
-        ...MemberFields
-        status
+      event {
+        id
+        title
+        going
+        maxTickets
       }
       errors {
         message
         code
-        field
       }
     }
   }
-  ${MEMBER_FIELDS}
 `;
 
 // Bulk update mutation - using the same mutation but keeping it separate for clarity
