@@ -8,7 +8,6 @@ export const GROUP_FIELDS = gql`
     urlname
     status
     memberships {
-      count
       totalCount
     }
   }
@@ -26,8 +25,8 @@ export const USER_FIELDS = gql`
         node {
           id
           status
-          role
-          group {
+          membershipRole: role
+          memberGroup: group {
             ...GroupFields
           }
         }
@@ -59,16 +58,16 @@ export const EVENT_FIELDS = gql`
       lat
       lng
     }
-    group {
+    eventGroup: group {
       ...GroupFields
     }
     going
     maxTickets
     rsvpSettings {
-      guestLimit
-      rsvpLimit
-      rsvpOpenTime
-      rsvpCloseTime
+      openTime: rsvpOpenTime
+      closeTime: rsvpCloseTime
+      maxTickets
+      guestsPerMember
     }
     tickets(first: 0) {
       totalCount
@@ -88,7 +87,7 @@ export const MEMBER_FIELDS = gql`
         node {
           id
           status
-          role
+          membershipRole: role
         }
       }
       pageInfo {
@@ -120,8 +119,8 @@ export const GET_ORGANIZED_EVENTS = gql`
           node {
             id
             status
-            role
-            group {
+            membershipRole: role
+            memberGroup: group {
               ...GroupFields
             }
           }
