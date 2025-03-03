@@ -113,13 +113,6 @@ export const GET_ORGANIZED_EVENTS = gql`
             dateTime
             eventType
             status
-            group {
-              id
-              name
-              urlname
-            }
-            going
-            maxTickets
             venue {
               id
               name
@@ -130,6 +123,13 @@ export const GET_ORGANIZED_EVENTS = gql`
               lat
               lng
             }
+            group {
+              id
+              name
+              urlname
+            }
+            going
+            maxTickets
           }
         }
       }
