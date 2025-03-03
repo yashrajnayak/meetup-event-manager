@@ -28,62 +28,48 @@ const processEventData = (event: any): MeetupEvent => ({
   images: event.images,
 });
 
+interface EventEdge {
+  node: MeetupEvent;
+}
+
 // Fetch events organized by the user
-export const fetchOrganizedEvents = async (accessToken: string): Promise<MeetupEvent[]> => {
+export async function fetchOrganizedEvents(token: string): Promise<MeetupEvent[]> {
   try {
-    const { data } = await client.query({
+    const response = await client.query({
       query: GET_ORGANIZED_EVENTS,
       context: {
         headers: {
-          'Authorization': `Bearer ${accessToken}`
+          'Authorization': `Bearer ${token}`
         }
       }
     });
 
-    // Check if data and self exist
+    if (response.errors) {
+      console.error('GraphQL errors:', response.errors);
+      throw new Error('Failed to fetch organized events');
+    }
+
+    const data = response.data;
     if (!data?.self) {
-      console.log('No user data returned');
+      console.error('No user data returned');
       return [];
     }
 
-    if (!data.self.isOrganizer) {
-      console.log('User is not an organizer');
+    // Check if user has any organizer groups
+    const hasOrganizerGroups = data.self.groups?.edges?.length > 0;
+    if (!hasOrganizerGroups) {
+      console.log('User is not an organizer of any groups');
       return [];
     }
 
-    // Check if hostedEvents exists and has edges
-    if (!data.self.hostedEvents?.edges) {
-      console.log('No hosted events found');
-      return [];
-    }
-
-    // Process the connection pattern response
-    const events = data.self.hostedEvents.edges.map((edge: Edge<any>) => ({
-      id: edge.node.id,
-      title: edge.node.title,
-      description: edge.node.description,
-      dateTime: edge.node.dateTime,
-      duration: edge.node.duration,
-      status: edge.node.status,
-      eventType: edge.node.eventType,
-      venue: edge.node.venue,
-      group: {
-        ...edge.node.group,
-        membershipCount: edge.node.group.memberships?.count || 0
-      },
-      going: edge.node.going || 0,
-      waitlist: edge.node.waiting || 0,
-      maxTickets: edge.node.maxTickets,
-      fee: edge.node.fee,
-      images: edge.node.images,
-    }));
-
+    // Extract events from the response
+    const events = data.self.hostedEvents?.edges?.map((edge: EventEdge) => edge.node) || [];
     return events;
   } catch (error) {
-    console.error('Error fetching events:', error);
-    throw error; // Re-throw to allow proper error handling upstream
+    console.error('Error fetching organized events:', error);
+    throw error;
   }
-};
+}
 
 // Extract member ID from profile URL
 export const extractMemberId = (url: string): string | null => {

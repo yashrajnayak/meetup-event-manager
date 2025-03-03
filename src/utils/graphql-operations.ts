@@ -7,7 +7,17 @@ export const USER_FIELDS = gql`
     name
     email
     bio
-    isOrganizer
+    groups(input: { role: "organizer" }) {
+      edges {
+        node {
+          id
+          name
+          urlname
+          status
+          membershipCount
+        }
+      }
+    }
   }
 `;
 

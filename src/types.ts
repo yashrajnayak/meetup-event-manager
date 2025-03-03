@@ -15,7 +15,17 @@ export interface MeetupUser {
   name: string;
   email?: string;
   bio?: string;
-  isOrganizer?: boolean;
+  groups?: {
+    edges: Array<{
+      node: {
+        id: string;
+        name: string;
+        urlname: string;
+        status: string;
+        membershipCount: number;
+      };
+    }>;
+  };
 }
 
 export interface MeetupVenue {
