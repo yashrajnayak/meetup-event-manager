@@ -167,7 +167,9 @@ export const changeRsvpStatus = async (
       variables: {
         input: {
           eventId,
-          response: 'YES'
+          response: 'YES',
+          proEmailShareOptin: false,
+          guestsCount: 0
         },
       },
       context: {

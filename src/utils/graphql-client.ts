@@ -1,9 +1,10 @@
-import { ApolloClient, InMemoryCache, ApolloLink, HttpLink } from '@apollo/client';
+import { ApolloClient, InMemoryCache, ApolloLink, HttpLink, Observable } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
 import { getProxyConfig, updateProxyHealth } from './proxy-config';
 
 const MAX_RETRIES = 3;
+const RATE_LIMIT_DELAY = 60000; // 60 seconds as per API docs
 
 async function customFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
   const uri = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
@@ -20,23 +21,19 @@ async function customFetch(input: string | URL | Request, init?: RequestInit): P
     throw new Error('Invalid proxy configuration');
   }
 
-  // Validate and process GraphQL request
+  // Ensure we have a proper GraphQL request
   if (options.body) {
     try {
       const body = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
       if (!body.query) {
-        console.error('GraphQL request is missing query');
         throw new Error('Missing GraphQL query');
       }
       // Re-stringify to ensure proper format
       options.body = JSON.stringify(body);
     } catch (error) {
       console.error('Invalid GraphQL request body:', error);
-      throw new Error('Invalid GraphQL request body');
+      throw new Error('Invalid GraphQL request');
     }
-  } else {
-    console.error('GraphQL request body is missing');
-    throw new Error('Missing request body');
   }
 
   const { url, options: transformedOptions } = proxyConfig.transformRequest(uri, options);
@@ -66,6 +63,18 @@ async function customFetch(input: string | URL | Request, init?: RequestInit): P
         try {
           const errorJson = JSON.parse(errorBody);
           if (errorJson.errors) {
+            // Handle rate limiting
+            const rateLimitError = errorJson.errors.find((e: any) => 
+              e.extensions?.code === 'RATE_LIMITED'
+            );
+            if (rateLimitError) {
+              const resetAt = new Date(rateLimitError.extensions.resetAt);
+              const now = new Date();
+              const waitTime = Math.max(resetAt.getTime() - now.getTime(), RATE_LIMIT_DELAY);
+              console.log(`Rate limited. Waiting ${waitTime}ms before retrying...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+              return customFetch(input, init);
+            }
             errorMessage = `GraphQL errors: ${JSON.stringify(errorJson.errors)}`;
           } else if (errorJson.message) {
             errorMessage = errorJson.message;
@@ -79,7 +88,7 @@ async function customFetch(input: string | URL | Request, init?: RequestInit): P
       }
 
       // Mark proxy as unhealthy for specific error conditions
-      if (response.status === 530 || response.status === 403 || response.status === 400 || errorMessage.includes('error code: 1016')) {
+      if (response.status === 530 || response.status === 403 || response.status === 400) {
         updateProxyHealth(proxyConfig.url, false);
       }
 
@@ -105,10 +114,18 @@ const errorLink = onError(({ networkError, operation, forward }) => {
   if (networkError) {
     console.error('[Network error]:', networkError);
     
+    // Handle rate limiting errors
+    if (networkError.message.includes('RATE_LIMITED')) {
+      return new Observable(observer => {
+        setTimeout(() => {
+          forward(operation).subscribe(observer);
+        }, RATE_LIMIT_DELAY);
+      });
+    }
+    
     // If it's a proxy error, try with a different proxy
     if (networkError.message.includes('Proxy request failed') || 
-        networkError.message.includes('Failed to fetch') ||
-        networkError.message.includes('error code: 1016')) {
+        networkError.message.includes('Failed to fetch')) {
       const currentProxy = getProxyConfig();
       if (currentProxy) {
         updateProxyHealth(currentProxy.url, false);
@@ -122,8 +139,8 @@ const errorLink = onError(({ networkError, operation, forward }) => {
 
 const retryLink = new RetryLink({
   delay: {
-    initial: 300,
-    max: 3000,
+    initial: 1000,
+    max: RATE_LIMIT_DELAY,
     jitter: true
   },
   attempts: {
@@ -133,7 +150,7 @@ const retryLink = new RetryLink({
         error && 
         (error.message.includes('Proxy request failed') || 
          error.message.includes('Failed to fetch') ||
-         error.message.includes('error code: 1016'))
+         error.message.includes('RATE_LIMITED'))
       );
       
       // Only retry if we have a healthy proxy available
