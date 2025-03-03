@@ -2,8 +2,9 @@ import { AuthState } from '../types';
 
 // Constants
 const MEETUP_API_URL = 'https://api.meetup.com';
-const BASE_URL = 'https://yashrajnayak.github.io';
-const APP_PATH = '/meetup';
+const isDevelopment = import.meta.env.MODE === 'development';
+const BASE_URL = isDevelopment ? 'http://localhost:5174' : 'https://yashrajnayak.github.io';
+const APP_PATH = isDevelopment ? '' : '/meetup';
 const REDIRECT_URI = `${BASE_URL}${APP_PATH}`;
 const STORAGE_KEY = 'meetup_auth';
 
@@ -14,7 +15,8 @@ if (!CLIENT_ID) {
 }
 
 // Debug logging for deployment
-console.log('Environment:', {
+console.log('Auth Configuration:', {
+  mode: import.meta.env.MODE,
   baseUrl: BASE_URL,
   appPath: APP_PATH,
   redirectUri: REDIRECT_URI,
@@ -62,14 +64,23 @@ export const loginWithMeetup = (): void => {
   const authUrl = `https://secure.meetup.com/oauth2/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scope}`;
   
   // Debug log
-  console.log('Initiating login, redirect URI:', REDIRECT_URI);
+  console.log('Initiating login:', {
+    clientId: CLIENT_ID,
+    redirectUri: REDIRECT_URI,
+    scope
+  });
   
   window.location.href = authUrl;
 };
 
 // Handle auth callback
 export const handleAuthCallback = (): AuthState | null => {
-  console.log('Handling auth callback, hash:', window.location.hash); // Debug log
+  console.log('Handling auth callback:', { 
+    hash: window.location.hash,
+    pathname: window.location.pathname,
+    href: window.location.href
+  });
+
   const hash = window.location.hash;
   if (!hash || !hash.includes('access_token')) return null;
 
@@ -79,7 +90,7 @@ export const handleAuthCallback = (): AuthState | null => {
   if (!accessToken) return null;
 
   // Clear hash from URL but maintain the base path
-  window.history.replaceState(null, '', APP_PATH);
+  window.history.replaceState(null, '', isDevelopment ? '/' : APP_PATH);
   
   const authState = {
     isAuthenticated: true,
