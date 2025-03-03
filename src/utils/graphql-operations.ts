@@ -7,7 +7,6 @@ export const USER_FIELDS = gql`
     name
     email
     bio
-    isProMember
     isOrganizer
   }
 `;
@@ -30,7 +29,6 @@ export const EVENT_FIELDS = gql`
       country
       lat
       lng
-      radius
     }
     group {
       id
@@ -46,7 +44,10 @@ export const EVENT_FIELDS = gql`
     going
     waiting
     maxTickets
-    fee
+    fee {
+      amount
+      currency
+    }
     images {
       id
       baseUrl

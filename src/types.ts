@@ -15,7 +15,6 @@ export interface MeetupUser {
   name: string;
   email?: string;
   bio?: string;
-  isPro?: boolean;
   isOrganizer?: boolean;
 }
 

@@ -24,10 +24,7 @@ const processEventData = (event: any): MeetupEvent => ({
   going: event.going || 0,
   waitlist: event.waiting || 0,
   maxTickets: event.maxTickets,
-  fee: event.fee ? {
-    amount: event.fee.amount,
-    currency: event.fee.currency
-  } : undefined,
+  fee: event.fee?.amount,
   images: event.images,
 });
 
