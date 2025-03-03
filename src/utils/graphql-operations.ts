@@ -26,18 +26,13 @@ export const USER_FIELDS = gql`
           status
           role
           group {
-            id
-            name
-            urlname
-            status
-            memberships {
-              count
-            }
+            ...GroupFields
           }
         }
       }
     }
   }
+  ${GROUP_FIELDS}
 `;
 
 export const EVENT_FIELDS = gql`
@@ -58,18 +53,17 @@ export const EVENT_FIELDS = gql`
       lat
       lng
     }
-    organizer {
-      id
-      name
-      urlname
-      status
-      memberships {
-        count
-      }
+    group {
+      ...GroupFields
     }
     going
     maxTickets
+    rsvpSettings {
+      guestLimit
+      rsvpLimit
+    }
   }
+  ${GROUP_FIELDS}
 `;
 
 export const MEMBER_FIELDS = gql`
@@ -111,13 +105,7 @@ export const GET_ORGANIZED_EVENTS = gql`
             status
             role
             group {
-              id
-              name
-              urlname
-              status
-              memberships {
-                count
-              }
+              ...GroupFields
             }
           }
         }
@@ -125,38 +113,14 @@ export const GET_ORGANIZED_EVENTS = gql`
       hostedEvents {
         edges {
           node {
-            id
-            title
-            description
-            dateTime
-            eventType
-            status
-            venue {
-              id
-              name
-              address
-              city
-              state
-              country
-              lat
-              lng
-            }
-            organizer {
-              id
-              name
-              urlname
-              status
-              memberships {
-                count
-              }
-            }
-            going
-            maxTickets
+            ...EventFields
           }
         }
       }
     }
   }
+  ${GROUP_FIELDS}
+  ${EVENT_FIELDS}
 `;
 
 export const GET_EVENT_MEMBERS = gql`
