@@ -8,8 +8,12 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ format('https://{0}.github.io/meetup', github.repository_owner) }}
     permissions:
       contents: write
+      id-token: write # Required for accessing environment secrets
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -25,28 +29,54 @@ jobs:
           npm install
           npm ci --prefer-offline
 
+      - name: Create env file
+        run: |
+          # Create env file with restricted permissions
+          install -m 600 /dev/null .env
+          # Use environment-scoped secret
+          echo "VITE_MEETUP_CLIENT_ID=${{ secrets.VITE_MEETUP_CLIENT_ID }}" > .env
+          echo "Environment file created successfully"
+
       - name: Verify Environment
         run: |
           echo "Node version: $(node -v)"
           echo "NPM version: $(npm -v)"
-          echo "VITE_MEETUP_CLIENT_ID exists: $([[ -n $VITE_MEETUP_CLIENT_ID ]] && echo 'yes' || echo 'no')"
-        env:
-          VITE_MEETUP_CLIENT_ID: ${{ secrets.VITE_MEETUP_CLIENT_ID }}
+          if [ ! -f .env ]; then
+            echo "Error: .env file not found"
+            exit 1
+          fi
+          if ! grep -q "VITE_MEETUP_CLIENT_ID=" .env; then
+            echo "Error: VITE_MEETUP_CLIENT_ID not found in .env"
+            exit 1
+          fi
+          # Verify file permissions
+          if [ "$(stat -c %a .env)" != "600" ]; then
+            echo "Error: Incorrect .env file permissions"
+            exit 1
+          fi
+          echo "Environment verification passed"
 
       - name: Build
         run: |
           npm run build
           echo "Build completed"
           ls -la dist/
-        env:
-          VITE_MEETUP_CLIENT_ID: ${{ secrets.VITE_MEETUP_CLIENT_ID }}
+          # Copy index.html to 404.html for GitHub Pages SPA support
+          cp dist/index.html dist/404.html
+
+      - name: Cleanup Sensitive Files
+        if: always()
+        run: |
+          # Securely remove .env file
+          if [ -f .env ]; then
+            shred -u .env
+          fi
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
-          cname: ${{ github.repository_owner }}.github.io
           enable_jekyll: false
           force_orphan: true
           commit_message: "Deploy to GitHub Pages"

@@ -8,6 +8,13 @@ import './index.css';
 // Create initial Apollo Client with no token
 const client = createApolloClient('');
 
+// Log environment info
+console.log('Environment:', {
+  mode: import.meta.env.MODE,
+  base: import.meta.env.BASE_URL,
+  hasClientId: !!import.meta.env.VITE_MEETUP_CLIENT_ID,
+});
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ApolloProvider client={client}>
