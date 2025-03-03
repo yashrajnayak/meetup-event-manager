@@ -251,7 +251,10 @@ export function updateProxyHealth(proxyUrl: string, isHealthy: boolean): void {
 // Get the next available healthy proxy
 export async function getHealthyProxy(): Promise<string | null> {
   // Update health status for all proxies
-  await Promise.all(proxyServers.map(proxy => updateProxyHealth(proxy.url, proxy.isHealthy)));
+  await Promise.all(proxyServers.map(async proxy => {
+    const isHealthy = await checkProxyHealth(proxy);
+    updateProxyHealth(proxy.url, isHealthy);
+  }));
   
   // Sort by priority and find the first healthy proxy
   const healthyProxy = proxyServers
@@ -262,22 +265,18 @@ export async function getHealthyProxy(): Promise<string | null> {
   return healthyProxy?.url || null;
 }
 
-// Get default proxy configuration
-export function getDefaultProxy(): ProxyConfig | null {
-  // Get the first healthy proxy by priority
-  return proxyServers
-    .sort((a, b) => a.priority - b.priority)
-    .find(p => p.isHealthy) || null;
-}
-
-// Get proxy configuration by URL
+// Get proxy configuration by URL or default if not specified
 export function getProxyConfig(proxyUrl?: string): ProxyConfig | null {
   if (!proxyUrl) {
-    return getDefaultProxy();
+    // Get the first healthy proxy by priority
+    return proxyServers
+      .sort((a, b) => a.priority - b.priority)
+      .find(p => p.isHealthy) || null;
   }
+  
   const config = proxyServers.find(p => proxyUrl.startsWith(p.url));
   console.log('Found proxy config for URL:', proxyUrl, 'Config:', config);
-  return config || getDefaultProxy();
+  return config || getProxyConfig(); // Recursively get default if not found
 }
 
 // Transform request based on proxy configuration
@@ -317,4 +316,7 @@ export function resetProxyHealth(): void {
     proxy.lastCheck = Date.now();
   });
   console.log('Reset all proxy health statuses');
-} 
+}
+
+// Export the list of proxy servers for testing
+export const __TEST_ONLY_proxyServers = proxyServers; 
