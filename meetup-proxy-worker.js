@@ -9,7 +9,7 @@ async function handleRequest(request) {
       headers: {
         'Access-Control-Allow-Origin': 'https://yashrajnayak.github.io',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': '*',
         'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Max-Age': '86400',
       }
@@ -25,32 +25,59 @@ async function handleRequest(request) {
     const meetupUrl = `https://api.meetup.com${targetPath}${url.search}`
     
     // Clone the headers and modify for the upstream request
-    const headers = new Headers(request.headers)
-    headers.delete('host')
-    headers.set('origin', 'https://api.meetup.com')
+    const headers = new Headers()
     
-    const meetupRequest = new Request(meetupUrl, {
+    // Copy specific headers from the original request
+    const headersToForward = ['authorization', 'content-type']
+    for (const header of headersToForward) {
+      const value = request.headers.get(header)
+      if (value) {
+        headers.set(header, value)
+      }
+    }
+
+    // Add required headers for Meetup API
+    headers.set('Accept', 'application/json')
+    headers.set('User-Agent', 'Meetup-Proxy/1.0')
+    
+    const requestInit = {
       method: request.method,
       headers: headers,
-      body: request.method !== 'GET' ? request.body : null,
       redirect: 'follow'
-    })
+    }
+
+    // Only include body for POST requests
+    if (request.method === 'POST') {
+      const contentType = request.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        requestInit.body = await request.text()
+      }
+    }
 
     // Forward the request to Meetup API
-    const response = await fetch(meetupRequest)
+    const response = await fetch(meetupUrl, requestInit)
     
     // Create a new response with CORS headers
-    const responseHeaders = new Headers(response.headers)
-    responseHeaders.set('Access-Control-Allow-Origin', 'https://yashrajnayak.github.io')
-    responseHeaders.set('Access-Control-Allow-Credentials', 'true')
+    const responseHeaders = new Headers({
+      'Access-Control-Allow-Origin': 'https://yashrajnayak.github.io',
+      'Access-Control-Allow-Credentials': 'true',
+      'Content-Type': 'application/json'
+    })
+
+    // Copy the response body
+    const body = await response.text()
     
-    return new Response(response.body, {
+    return new Response(body, {
       status: response.status,
       statusText: response.statusText,
       headers: responseHeaders
     })
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Proxy error:', error)
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      details: error.stack
+    }), {
       status: 500,
       headers: {
         'Content-Type': 'application/json',
