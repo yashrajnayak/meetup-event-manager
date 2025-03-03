@@ -11,14 +11,16 @@ export interface MeetupUser {
   memberships?: {
     edges: Array<{
       node: {
-        role: string;
-        group: {
-          id: string;
-          name: string;
-          urlname: string;
-          status: string;
-          memberships: {
-            count: number;
+        membership: {
+          role: string;
+          group: {
+            id: string;
+            name: string;
+            urlname: string;
+            status: string;
+            memberships: {
+              count: number;
+            };
           };
         };
       };
@@ -68,7 +70,9 @@ export interface MeetupEvent {
 export interface MeetupMember {
   id: string;
   name: string;
-  role?: 'MEMBER' | 'ORGANIZER' | 'CO_ORGANIZER' | 'EVENT_ORGANIZER';
+  membership?: {
+    role: string;
+  };
   joinedAt?: string;
 }
 

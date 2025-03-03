@@ -165,14 +165,16 @@ const GET_USER_PROFILE = gql`
       memberships {
         edges {
           node {
-            role
-            group {
-              id
-              name
-              urlname
-              status
-              memberships {
-                count
+            membership {
+              role
+              group {
+                id
+                name
+                urlname
+                status
+                memberships {
+                  count
+                }
               }
             }
           }

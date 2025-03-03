@@ -93,14 +93,16 @@ export const GET_ORGANIZED_EVENTS = gql`
       memberships {
         edges {
           node {
-            role
-            group {
-              id
-              name
-              urlname
-              status
-              memberships {
-                count
+            membership {
+              role
+              group {
+                id
+                name
+                urlname
+                status
+                memberships {
+                  count
+                }
               }
             }
           }
@@ -148,7 +150,9 @@ export const GET_EVENT_MEMBERS = gql`
           node {
             id
             name
-            role
+            membership {
+              role
+            }
             joinedAt
           }
         }
