@@ -16,9 +16,21 @@ const proxyServers: ProxyConfig[] = [
     lastCheck: 0,
     requiresCredentials: true,
     transformRequest: (url: string, options?: RequestInit) => {
+      const baseUrl = 'https://api.meetup.com';
+      const path = url.includes('/gql') ? '/gql' : url.replace(baseUrl, '');
+      const finalUrl = `${proxyServers[0].url}/proxy${path}`;
+      
       return {
-        url: `${url.includes('/proxy/') ? url : url.replace('api.meetup.com', 'proxy')}`,
-        options: options || { method: 'GET' }
+        url: finalUrl,
+        options: {
+          ...(options || {}),
+          method: options?.method || 'GET',
+          headers: {
+            ...options?.headers,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
       };
     }
   },
@@ -29,28 +41,51 @@ const proxyServers: ProxyConfig[] = [
     lastCheck: 0,
     requiresCredentials: false,
     transformRequest: (url: string, options?: RequestInit) => {
-      // Remove any existing proxy prefixes
-      const targetUrl = url.replace('https://api.allorigins.win/raw/', '');
+      const baseUrl = 'https://api.meetup.com';
+      const path = url.includes('/gql') ? '/gql' : url.replace(baseUrl, '');
+      const targetUrl = `${baseUrl}${path}`;
+      
+      // Extract authorization header
+      const headers = options?.headers as Record<string, string>;
+      const auth = headers?.['Authorization'];
       
       // For GraphQL endpoint
       if (url.includes('/gql')) {
+        // Include auth in the body for GraphQL requests
+        const body = options?.body ? JSON.parse(options.body as string) : {};
+        const newBody = {
+          ...body,
+          extensions: {
+            ...body.extensions,
+            authorization: auth
+          }
+        };
+
         return {
-          url: `https://api.allorigins.win/raw?url=${encodeURIComponent('https://api.meetup.com/gql')}`,
+          url: `${proxyServers[1].url}?url=${encodeURIComponent(targetUrl)}`,
           options: {
-            ...(options || { method: 'POST' }),
+            ...(options || {}),
+            method: 'POST',
+            body: JSON.stringify(newBody),
             headers: {
-              ...(options?.headers || {}),
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
             }
           }
         };
       }
       
       // For REST endpoints
-      const finalUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://api.meetup.com/${targetUrl}`)}`;
       return { 
-        url: finalUrl, 
-        options: options || { method: 'GET' }
+        url: `${proxyServers[1].url}?url=${encodeURIComponent(targetUrl)}`,
+        options: {
+          ...(options || {}),
+          method: options?.method || 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        }
       };
     }
   }
@@ -61,24 +96,63 @@ const HEALTH_CHECK_INTERVAL = 60000; // 1 minute
 // Check proxy health
 export async function checkProxyHealth(proxy: ProxyConfig): Promise<boolean> {
   try {
-    const testUrl = proxy.url === 'https://api.allorigins.win/raw' 
-      ? `${proxy.url}?url=${encodeURIComponent('https://api.meetup.com/status')}`
-      : `${proxy.url}/proxy/status`;
-
-    const response = await fetch(testUrl, {
+    let testUrl: string;
+    let options: RequestInit = {
       method: 'GET',
       headers: {
         'Accept': 'application/json'
       }
-    });
+    };
+
+    if (proxy.url === 'https://api.allorigins.win/raw') {
+      testUrl = `${proxy.url}?url=${encodeURIComponent('https://api.meetup.com/status')}`;
+    } else {
+      testUrl = `${proxy.url}/proxy/status`;
+      options.headers = {
+        ...options.headers,
+        'Content-Type': 'application/json'
+      };
+    }
+
+    console.log('Checking health for proxy:', proxy.url);
+    const response = await fetch(testUrl, options);
 
     if (!response.ok) {
-      console.warn(`Health check failed for proxy ${proxy.url}: ${response.status}`);
+      console.warn(`Health check failed for proxy ${proxy.url}:`, {
+        status: response.status,
+        statusText: response.statusText
+      });
       return false;
     }
 
-    const contentType = response.headers.get('content-type');
-    return Boolean(contentType?.includes('application/json') || contentType?.includes('text/plain'));
+    try {
+      const contentType = response.headers.get('content-type');
+      const isValidResponse = contentType?.includes('application/json') || 
+                            contentType?.includes('text/plain') ||
+                            contentType?.includes('text/html'); // Some proxies might return HTML
+
+      if (!isValidResponse) {
+        console.warn(`Invalid content type from proxy ${proxy.url}:`, contentType);
+        return false;
+      }
+
+      const text = await response.text();
+      // Try to parse as JSON if possible
+      try {
+        JSON.parse(text);
+      } catch {
+        // If not JSON, check if it's a valid response
+        if (!text.includes('status') && !text.includes('ok')) {
+          console.warn(`Invalid response from proxy ${proxy.url}:`, text);
+          return false;
+        }
+      }
+
+      return true;
+    } catch (parseError) {
+      console.warn(`Error parsing response from proxy ${proxy.url}:`, parseError);
+      return false;
+    }
   } catch (error) {
     console.warn(`Health check error for proxy ${proxy.url}:`, error);
     return false;
