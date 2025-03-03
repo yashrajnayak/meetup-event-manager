@@ -24,22 +24,28 @@ const proxyServers: ProxyConfig[] = [
       if (url.includes('/gql')) {
         const headers = options?.headers as Record<string, string>;
         const requestHeaders: Record<string, string> = {
-          'Authorization': headers?.['Authorization'] || '',
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': 'https://yashrajnayak.github.io',
-          'Referer': 'https://yashrajnayak.github.io/'
+          'Accept': 'application/json'
         };
 
-        // Ensure body is properly stringified
+        // Add authorization if present
+        if (headers?.['Authorization']) {
+          requestHeaders['Authorization'] = headers['Authorization'];
+        }
+
+        // Ensure body is properly formatted
         let body = options?.body;
-        if (body && typeof body === 'string') {
+        if (body) {
           try {
-            // Verify it's valid JSON
-            JSON.parse(body);
-          } catch {
-            // If not valid JSON, stringify it
-            body = JSON.stringify(body);
+            const parsedBody = typeof body === 'string' ? JSON.parse(body) : body;
+            // Ensure the body has the required fields
+            if (!parsedBody.query) {
+              throw new Error('Missing GraphQL query');
+            }
+            body = JSON.stringify(parsedBody);
+          } catch (error) {
+            console.error('Error processing GraphQL body:', error);
+            throw new Error('Invalid GraphQL request body');
           }
         }
 
@@ -49,7 +55,6 @@ const proxyServers: ProxyConfig[] = [
             method: 'POST',
             headers: requestHeaders,
             body,
-            credentials: 'include',
             mode: 'cors'
           }
         };
@@ -89,43 +94,47 @@ const proxyServers: ProxyConfig[] = [
       
       // Extract authorization header
       const headers = options?.headers as Record<string, string>;
-      const auth = headers?.['Authorization']?.replace('Bearer ', '');
+      const auth = headers?.['Authorization'];
       
       // For GraphQL endpoint
       if (url.includes('/gql')) {
-        // Add auth as a URL parameter
-        const authParam = auth ? `&authorization=${encodeURIComponent(auth)}` : '';
         const requestHeaders: Record<string, string> = {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
+          'Accept': 'application/json'
         };
 
-        // Ensure body is properly stringified
+        // Process the request body
         let body = options?.body;
-        if (body && typeof body === 'string') {
+        if (body) {
           try {
-            // Verify it's valid JSON
-            JSON.parse(body);
-          } catch {
-            // If not valid JSON, stringify it
-            body = JSON.stringify(body);
+            const parsedBody = typeof body === 'string' ? JSON.parse(body) : body;
+            // Add authorization to the body if present
+            if (auth) {
+              parsedBody.authorization = auth.replace('Bearer ', '');
+            }
+            // Ensure the body has the required fields
+            if (!parsedBody.query) {
+              throw new Error('Missing GraphQL query');
+            }
+            body = JSON.stringify(parsedBody);
+          } catch (error) {
+            console.error('Error processing GraphQL body:', error);
+            throw new Error('Invalid GraphQL request body');
           }
         }
 
         return {
-          url: `${proxyServers[1].url}?url=${encodeURIComponent(targetUrl)}${authParam}`,
+          url: `${proxyServers[1].url}?url=${encodeURIComponent(targetUrl)}`,
           options: {
             method: 'POST',
-            body,
             headers: requestHeaders,
+            body,
             mode: 'cors'
           }
         };
       }
       
       // For REST endpoints
-      const authParam = auth ? `&authorization=${encodeURIComponent(auth)}` : '';
       const requestHeaders: Record<string, string> = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -133,7 +142,7 @@ const proxyServers: ProxyConfig[] = [
       };
 
       return { 
-        url: `${proxyServers[1].url}?url=${encodeURIComponent(targetUrl)}${authParam}`,
+        url: `${proxyServers[1].url}?url=${encodeURIComponent(targetUrl)}`,
         options: {
           method: options?.method || 'GET',
           headers: requestHeaders,

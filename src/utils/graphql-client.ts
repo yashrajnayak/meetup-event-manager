@@ -20,49 +20,77 @@ async function customFetch(input: string | URL | Request, init?: RequestInit): P
     throw new Error('Invalid proxy configuration');
   }
 
-  // Ensure we have a proper GraphQL request
+  // Validate and process GraphQL request
   if (options.body) {
     try {
       const body = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
       if (!body.query) {
+        console.error('GraphQL request is missing query');
         throw new Error('Missing GraphQL query');
       }
       // Re-stringify to ensure proper format
       options.body = JSON.stringify(body);
     } catch (error) {
       console.error('Invalid GraphQL request body:', error);
-      throw new Error('Invalid GraphQL request');
+      throw new Error('Invalid GraphQL request body');
     }
+  } else {
+    console.error('GraphQL request body is missing');
+    throw new Error('Missing request body');
   }
 
   const { url, options: transformedOptions } = proxyConfig.transformRequest(uri, options);
   console.log('Using proxy:', proxyConfig.url, 'for URI:', url, 'with options:', {
     method: transformedOptions.method,
     headers: transformedOptions.headers,
-    mode: transformedOptions.mode,
-    credentials: transformedOptions.credentials
+    body: transformedOptions.body ? JSON.parse(transformedOptions.body as string) : undefined
   });
 
   try {
     const response = await fetch(url, transformedOptions);
     
     if (!response.ok) {
-      const errorBody = await response.text();
-      console.error('Proxy error:', {
-        proxy: proxyConfig.url,
-        status: response.status,
-        statusText: response.statusText,
-        body: errorBody,
-        url,
-        options: transformedOptions
-      });
+      let errorMessage = `Proxy request failed: ${response.status}`;
+      try {
+        const errorBody = await response.text();
+        console.error('Proxy error:', {
+          proxy: proxyConfig.url,
+          status: response.status,
+          statusText: response.statusText,
+          body: errorBody,
+          url,
+          options: transformedOptions
+        });
+
+        // Try to parse error body as JSON
+        try {
+          const errorJson = JSON.parse(errorBody);
+          if (errorJson.errors) {
+            errorMessage = `GraphQL errors: ${JSON.stringify(errorJson.errors)}`;
+          } else if (errorJson.message) {
+            errorMessage = errorJson.message;
+          }
+        } catch {
+          // If not JSON, use the error body as is
+          errorMessage = errorBody;
+        }
+      } catch (error) {
+        console.error('Error reading error response:', error);
+      }
 
       // Mark proxy as unhealthy for specific error conditions
-      if (response.status === 530 || response.status === 403 || response.status === 400 || errorBody.includes('error code: 1016')) {
+      if (response.status === 530 || response.status === 403 || response.status === 400 || errorMessage.includes('error code: 1016')) {
         updateProxyHealth(proxyConfig.url, false);
       }
 
-      throw new Error(`Proxy request failed: ${response.status}`);
+      throw new Error(errorMessage);
+    }
+
+    // Validate JSON response
+    const contentType = response.headers.get('content-type');
+    if (!contentType?.includes('application/json')) {
+      console.error('Invalid response content type:', contentType);
+      throw new Error('Invalid response format');
     }
 
     return response;
