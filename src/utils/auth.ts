@@ -1,5 +1,5 @@
 import { AuthState } from '../types';
-import { getHealthyProxy, getProxyConfig, markProxyUnhealthy } from './proxy-config';
+import { getHealthyProxy, getProxyConfig, markProxyUnhealthy, transformRequest } from './proxy-config';
 
 // Constants
 const isDevelopment = import.meta.env.MODE === 'development';
@@ -138,16 +138,20 @@ export const fetchUserProfile = async (accessToken: string): Promise<AuthState> 
       const proxyConfig = getProxyConfig(proxyUrl);
       if (!proxyConfig) continue;
 
-      const response = await fetch(`${proxyUrl}/members/self`, {
+      const requestOptions = {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        mode: 'cors',
-        credentials: proxyConfig.requiresCredentials ? 'include' : 'omit'
-      });
+        mode: 'cors' as const,
+        credentials: proxyConfig.requiresCredentials ? 'include' as const : 'omit' as const
+      };
+
+      const { url, options } = transformRequest(proxyUrl, `${proxyUrl}/members/self`, requestOptions);
+
+      const response = await fetch(url, options);
 
       if (!response.ok) {
         const errorText = await response.text();

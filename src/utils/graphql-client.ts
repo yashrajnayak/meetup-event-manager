@@ -1,7 +1,20 @@
 import { ApolloClient, InMemoryCache, createHttpLink, from } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { RetryLink } from '@apollo/client/link/retry';
-import { getHealthyProxy, getGraphQLEndpoint, markProxyUnhealthy, getProxyConfig } from './proxy-config';
+import { getHealthyProxy, getGraphQLEndpoint, markProxyUnhealthy, getProxyConfig, transformRequest } from './proxy-config';
+
+// Custom fetch function that applies proxy transformations
+const customFetch = async (uri: string, options: RequestInit) => {
+  const proxyUrl = new URL(uri).origin + '/proxy';
+  const proxyConfig = getProxyConfig(proxyUrl);
+  
+  if (!proxyConfig) {
+    return fetch(uri, options);
+  }
+
+  const { url, options: transformedOptions } = transformRequest(proxyUrl, uri, options);
+  return fetch(url, transformedOptions);
+};
 
 // Error handling link with proxy fallback
 const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) => {
@@ -37,10 +50,12 @@ const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) 
       // Try to get a new healthy proxy
       return getHealthyProxy().then(proxyUrl => {
         if (proxyUrl) {
+          const proxyConfig = getProxyConfig(proxyUrl);
           // Update the operation with the new proxy
           operation.setContext({
             uri: getGraphQLEndpoint(proxyUrl),
-            credentials: getProxyConfig(proxyUrl)?.requiresCredentials ? 'include' : 'omit'
+            credentials: proxyConfig?.requiresCredentials ? 'include' : 'omit',
+            fetch: customFetch
           });
           // Retry the operation
           return forward(operation);
@@ -91,7 +106,8 @@ export const createApolloClient = async (token: string) => {
         },
         fetchOptions: {
           mode: 'cors'
-        }
+        },
+        fetch: customFetch
       }),
     ]),
     cache: new InMemoryCache(),

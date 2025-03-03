@@ -4,6 +4,7 @@ interface ProxyConfig {
   isHealthy: boolean;
   lastCheck: number;
   requiresCredentials: boolean;
+  transformRequest?: (url: string, options: RequestInit) => { url: string; options: RequestInit };
 }
 
 // List of proxy servers in order of priority
@@ -16,11 +17,30 @@ const proxyServers: ProxyConfig[] = [
     requiresCredentials: true
   },
   {
-    url: 'https://cors-anywhere.herokuapp.com/https://api.meetup.com',
+    url: 'https://api.allorigins.win/raw?url=',
     priority: 2,
     isHealthy: true,
     lastCheck: 0,
-    requiresCredentials: false
+    requiresCredentials: false,
+    transformRequest: (url: string, options: RequestInit) => {
+      // For AllOrigins, we need to encode the target URL and move auth header to URL
+      const targetUrl = url.replace(/^https:\/\/[^/]+\//, 'https://api.meetup.com/');
+      const authHeader = options.headers?.['Authorization'];
+      const finalUrl = `${targetUrl}${targetUrl.includes('?') ? '&' : '?'}access_token=${authHeader?.split(' ')[1] || ''}`;
+      const encodedUrl = encodeURIComponent(finalUrl);
+      
+      // Remove the auth header as it's now in the URL
+      const newHeaders = { ...options.headers };
+      delete newHeaders['Authorization'];
+      
+      return {
+        url: `https://api.allorigins.win/raw?url=${encodedUrl}`,
+        options: {
+          ...options,
+          headers: newHeaders
+        }
+      };
+    }
   }
 ];
 
@@ -29,12 +49,17 @@ const HEALTH_CHECK_INTERVAL = 60000; // 1 minute
 // Check proxy health
 async function checkProxyHealth(proxy: ProxyConfig): Promise<boolean> {
   try {
-    // For CORS Anywhere, we'll check a simple Meetup API endpoint
-    const testEndpoint = proxy.url.includes('cors-anywhere') 
-      ? `${proxy.url}/status`
-      : `${proxy.url}/ping`;
+    if (proxy.url.includes('allorigins')) {
+      const response = await fetch(`${proxy.url}${encodeURIComponent('https://api.meetup.com/status')}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      return response.ok;
+    }
 
-    const response = await fetch(testEndpoint, {
+    const response = await fetch(`${proxy.url}/ping`, {
       method: 'OPTIONS',
       headers: {
         'Accept': 'application/json'
@@ -42,11 +67,6 @@ async function checkProxyHealth(proxy: ProxyConfig): Promise<boolean> {
       credentials: proxy.requiresCredentials ? 'include' : 'omit',
       mode: 'cors'
     });
-
-    // For CORS Anywhere, any response means it's working
-    if (proxy.url.includes('cors-anywhere')) {
-      return true;
-    }
 
     return response.ok;
   } catch (error) {
@@ -82,11 +102,21 @@ export function getProxyConfig(proxyUrl: string): ProxyConfig | null {
   return proxyServers.find(p => p.url === proxyUrl) || null;
 }
 
+// Transform request based on proxy configuration
+export function transformRequest(proxyUrl: string, url: string, options: RequestInit): { url: string; options: RequestInit } {
+  const proxyConfig = getProxyConfig(proxyUrl);
+  if (proxyConfig?.transformRequest) {
+    return proxyConfig.transformRequest(url, options);
+  }
+  return { url, options };
+}
+
 // Get GraphQL endpoint for the given proxy
 export function getGraphQLEndpoint(proxyUrl: string): string {
-  return proxyUrl.includes('cors-anywhere')
-    ? `${proxyUrl}/gql`
-    : `${proxyUrl}/gql`;
+  if (proxyUrl.includes('allorigins')) {
+    return `${proxyUrl}${encodeURIComponent('https://api.meetup.com/gql')}`;
+  }
+  return `${proxyUrl}/gql`;
 }
 
 // Mark a proxy as unhealthy
