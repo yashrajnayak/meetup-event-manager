@@ -1,6 +1,24 @@
 import { gql } from '@apollo/client';
 
 // Fragments for reusable pieces
+export const MEMBERSHIP_FIELDS = gql`
+  fragment MembershipFields on MembershipEdge {
+    node {
+      id
+      status
+      group {
+        id
+        name
+        urlname
+        status
+        memberships {
+          count
+        }
+      }
+    }
+  }
+`;
+
 export const USER_FIELDS = gql`
   fragment UserFields on User {
     id
@@ -9,22 +27,11 @@ export const USER_FIELDS = gql`
     bio
     memberships {
       edges {
-        node {
-          id
-          status
-          group {
-            id
-            name
-            urlname
-            status
-            memberships {
-              count
-            }
-          }
-        }
+        ...MembershipFields
       }
     }
   }
+  ${MEMBERSHIP_FIELDS}
 `;
 
 export const EVENT_FIELDS = gql`
@@ -66,43 +73,21 @@ export const MEMBER_FIELDS = gql`
     joinedAt
     memberships {
       edges {
-        node {
-          id
-          status
-        }
+        ...MembershipFields
       }
     }
   }
+  ${MEMBERSHIP_FIELDS}
 `;
 
 // Queries
 export const GET_SELF = gql`
   query GetSelf {
     self {
-      id
-      name
-      email
-      bio
-      memberships {
-        edges {
-          node {
-            id
-            status
-            group {
-              id
-              name
-              urlname
-              status
-              memberships {
-                count
-              }
-              }
-            }
-          }
-        }
-      }
+      ...UserFields
     }
   }
+  ${USER_FIELDS}
 `;
 
 export const GET_ORGANIZED_EVENTS = gql`
@@ -112,52 +97,20 @@ export const GET_ORGANIZED_EVENTS = gql`
       name
       memberships {
         edges {
-          node {
-            id
-            status
-            group {
-              id
-              name
-              urlname
-              status
-              memberships {
-                count
-              }
-            }
-          }
+          ...MembershipFields
         }
       }
       hostedEvents {
         edges {
           node {
-            id
-            title
-            description
-            dateTime
-            eventType
-            status
-            venue {
-              id
-              name
-              address
-              city
-              state
-              country
-              lat
-              lng
-            }
-            group {
-              id
-              name
-              urlname
-            }
-            going
-            maxTickets
+            ...EventFields
           }
         }
       }
     }
   }
+  ${MEMBERSHIP_FIELDS}
+  ${EVENT_FIELDS}
 `;
 
 export const GET_EVENT_MEMBERS = gql`
@@ -167,17 +120,7 @@ export const GET_EVENT_MEMBERS = gql`
       members(first: $first, after: $after) {
         edges {
           node {
-            id
-            name
-            joinedAt
-            memberships {
-              edges {
-                node {
-                  id
-                  status
-                }
-              }
-            }
+            ...MemberFields
           }
         }
         pageInfo {
@@ -188,6 +131,7 @@ export const GET_EVENT_MEMBERS = gql`
       }
     }
   }
+  ${MEMBER_FIELDS}
 `;
 
 export const GET_EVENT_WAITLIST = gql`
@@ -199,9 +143,7 @@ export const GET_EVENT_WAITLIST = gql`
           node {
             id
             member {
-              id
-              name
-              joinedAt
+              ...MemberFields
             }
           }
         }
@@ -213,6 +155,7 @@ export const GET_EVENT_WAITLIST = gql`
       }
     }
   }
+  ${MEMBER_FIELDS}
 `;
 
 // Mutations
@@ -220,10 +163,7 @@ export const UPDATE_MEMBER_STATUS = gql`
   mutation UpdateMemberStatus($input: RsvpInput!) {
     rsvp(input: $input) {
       event {
-        id
-        title
-        going
-        maxTickets
+        ...EventFields
       }
       errors {
         message
@@ -231,6 +171,7 @@ export const UPDATE_MEMBER_STATUS = gql`
       }
     }
   }
+  ${EVENT_FIELDS}
 `;
 
 // Bulk update mutation - using the same mutation but keeping it separate for clarity
@@ -238,17 +179,7 @@ export const BULK_UPDATE_MEMBER_STATUS = gql`
   mutation BulkUpdateMemberStatus($input: RsvpInput!) {
     rsvp(input: $input) {
       member {
-        id
-        name
-        joinedAt
-        memberships {
-          edges {
-            node {
-              id
-              status
-            }
-          }
-        }
+        ...MemberFields
       }
       errors {
         message
@@ -256,4 +187,5 @@ export const BULK_UPDATE_MEMBER_STATUS = gql`
       }
     }
   }
+  ${MEMBER_FIELDS}
 `;
