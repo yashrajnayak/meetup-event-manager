@@ -88,7 +88,9 @@ export const GET_SELF = gql`
 export const GET_ORGANIZED_EVENTS = gql`
   query GetOrganizedEvents {
     self {
-      memberships {
+      id
+      name
+      memberships(input: { role: "organizer" }) {
         edges {
           node {
             role

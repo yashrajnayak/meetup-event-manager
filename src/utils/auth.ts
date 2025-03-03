@@ -162,7 +162,7 @@ const GET_USER_PROFILE = gql`
       name
       email
       bio
-      memberships {
+      memberships(input: { role: "organizer" }) {
         edges {
           node {
             role
@@ -187,13 +187,6 @@ const GET_USER_PROFILE = gql`
             dateTime
             eventType
             status
-            group {
-              id
-              name
-              urlname
-            }
-            going
-            maxTickets
             venue {
               id
               name
@@ -204,6 +197,13 @@ const GET_USER_PROFILE = gql`
               lat
               lng
             }
+            group {
+              id
+              name
+              urlname
+            }
+            going
+            maxTickets
           }
         }
       }
