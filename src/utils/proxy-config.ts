@@ -86,11 +86,11 @@ export async function checkProxyHealth(proxy: ProxyConfig): Promise<boolean> {
 }
 
 // Update proxy health status
-async function updateProxyHealth(proxy: ProxyConfig): Promise<void> {
-  const now = Date.now();
-  if (now - proxy.lastCheck > HEALTH_CHECK_INTERVAL) {
-    proxy.isHealthy = await checkProxyHealth(proxy);
-    proxy.lastCheck = now;
+export function updateProxyHealth(proxyUrl: string, isHealthy: boolean): void {
+  const proxy = proxyServers.find(p => proxyUrl.startsWith(p.url));
+  if (proxy) {
+    proxy.isHealthy = isHealthy;
+    proxy.lastCheck = Date.now();
     console.log('Updated proxy health:', {
       url: proxy.url,
       isHealthy: proxy.isHealthy,
@@ -102,7 +102,7 @@ async function updateProxyHealth(proxy: ProxyConfig): Promise<void> {
 // Get the next available healthy proxy
 export async function getHealthyProxy(): Promise<string | null> {
   // Update health status for all proxies
-  await Promise.all(proxyServers.map(updateProxyHealth));
+  await Promise.all(proxyServers.map(proxy => updateProxyHealth(proxy.url, proxy.isHealthy)));
   
   // Sort by priority and find the first healthy proxy
   const healthyProxy = proxyServers
