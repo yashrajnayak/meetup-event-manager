@@ -11,7 +11,7 @@ export const USER_FIELDS = gql`
       edges {
         node {
           id
-          role
+          status
           group {
             id
             name
@@ -68,7 +68,7 @@ export const MEMBER_FIELDS = gql`
       edges {
         node {
           id
-          role
+          status
         }
       }
     }
@@ -87,7 +87,7 @@ export const GET_SELF = gql`
         edges {
           node {
             id
-            role
+            status
             group {
               id
               name
@@ -95,6 +95,7 @@ export const GET_SELF = gql`
               status
               memberships {
                 count
+              }
               }
             }
           }
@@ -113,7 +114,7 @@ export const GET_ORGANIZED_EVENTS = gql`
         edges {
           node {
             id
-            role
+            status
             group {
               id
               name
@@ -173,7 +174,7 @@ export const GET_EVENT_MEMBERS = gql`
               edges {
                 node {
                   id
-                  role
+                  status
                 }
               }
             }
@@ -244,7 +245,7 @@ export const BULK_UPDATE_MEMBER_STATUS = gql`
           edges {
             node {
               id
-              role
+              status
             }
           }
         }
