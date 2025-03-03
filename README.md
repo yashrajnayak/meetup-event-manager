@@ -1,16 +1,148 @@
 # Meetup Event Manager
 
-A React application that helps Meetup event organizers manage their waitlists efficiently by allowing them to move members from waitlist to "going" status in bulk, while respecting Meetup's API rate limits.
+A powerful tool designed to help Meetup event organizers efficiently manage their event waitlists. This application allows organizers to move members from waitlist to "going" status in bulk while respecting Meetup's API rate limits.
 
 ## Features
 
-- 🔐 OAuth2 authentication with Meetup
-- 📋 View all events you're organizing
-- 👥 Manage event waitlists
-- ⚡ Bulk update member statuses with progress tracking
-- 🚦 Rate limit handling with sequential processing
-- 📊 Real-time progress indicators
-- 🎯 Error handling and retry mechanisms
+### Waitlist Management
+- Bulk move members from waitlist to "going" status
+- Efficient pagination through waitlist members
+- Real-time progress tracking
+- Batch processing to optimize API usage
+- Automatic handling of rate limits
+
+### Rate Limiting
+- Respects Meetup API's limit of 500 points per 60 seconds
+- Smart point tracking for different operations:
+  - Queries: 5 points
+  - Mutations: 10 points
+- Automatic rate limit window management
+- Minimum delay between requests to prevent API overload
+- Intelligent retry mechanism for rate-limited requests
+
+### Error Handling
+- Comprehensive error handling for API responses
+- Detailed error logging and reporting
+- Graceful recovery from rate limit errors
+- Batch-level error isolation (errors in one batch don't affect others)
+- Progress preservation on failure
+
+### Progress Tracking
+- Real-time progress updates
+- Detailed success/failure tracking
+- Per-member status updates
+- Batch progress reporting
+- Overall operation progress monitoring
+
+## Technical Details
+
+### API Integration
+- GraphQL-based communication with Meetup API
+- OAuth2 authentication support
+- Proxy support for API requests
+- Efficient data fetching with pagination
+- Type-safe API responses
+
+### Rate Limit Implementation
+```typescript
+const POINTS_PER_WINDOW = 500;
+const RATE_LIMIT_WINDOW = 60000; // 60 seconds
+const OPERATION_COSTS = {
+  QUERY: 5,
+  MUTATION: 10
+};
+```
+
+### Batch Processing
+- Default batch size: 10 members
+- Configurable progress callbacks
+- Automatic retry on recoverable errors
+- Efficient memory usage
+
+## Usage
+
+1. **Authentication**
+   ```typescript
+   // Initialize with your access token
+   const accessToken = "your-meetup-access-token";
+   ```
+
+2. **Fetch Waitlist**
+   ```typescript
+   const waitlistMembers = await fetchWaitlistMembers(
+     accessToken,
+     eventId,
+     (progress) => {
+       console.log(`Fetched ${progress.current} of ${progress.total} members`);
+     }
+   );
+   ```
+
+3. **Bulk Update Status**
+   ```typescript
+   const results = await bulkChangeRsvpStatus(
+     accessToken,
+     eventId,
+     waitlistMembers,
+     (progress) => {
+       console.log(`Processed ${progress.current} of ${progress.total} members`);
+       console.log(`Success: ${progress.success.length}, Failed: ${progress.failed.length}`);
+     }
+   );
+   ```
+
+## Error Handling
+
+The application handles various types of errors:
+- Rate limiting errors
+- Network errors
+- API errors
+- Authentication errors
+- Invalid response errors
+
+Example error handling:
+```typescript
+try {
+  const results = await bulkChangeRsvpStatus(accessToken, eventId, members);
+  console.log(`Successfully updated ${results.success.length} members`);
+} catch (error) {
+  console.error('Failed to update members:', error);
+}
+```
+
+## Rate Limit Considerations
+
+The application automatically manages rate limits, but consider these best practices:
+- Process large waitlists in multiple sessions
+- Monitor the progress callbacks for real-time status
+- Handle partial success scenarios appropriately
+- Consider implementing cool-down periods between large operations
+
+## Dependencies
+
+- @apollo/client: GraphQL client
+- typescript: Type safety
+- react: UI framework
+- Other dependencies as specified in package.json
+
+## Development
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Set up environment variables:
+   ```
+   MEETUP_CLIENT_ID=your_client_id
+   MEETUP_CLIENT_SECRET=your_client_secret
+   ```
+4. Start development server: `npm run dev`
+
+## Contributing
+
+Contributions are welcome! Please read our contributing guidelines and submit pull requests for any improvements.
+
+## License
+
+MIT License - see LICENSE file for details
 
 ## Live Demo
 
@@ -75,15 +207,6 @@ The application is automatically deployed to GitHub Pages when changes are pushe
 2. Handles environment variables securely
 3. Deploys to GitHub Pages
 
-## Rate Limiting
-
-The application implements careful rate limit handling:
-
-- Sequential processing of member status updates
-- 1-second delay between requests
-- Automatic retry on rate limit errors
-- Progress tracking for bulk operations
-
 ## CORS and Proxy Configuration
 
 The application uses a multi-proxy setup to handle CORS and API access:
@@ -121,18 +244,6 @@ The proxy system includes:
 - GraphQL-specific error handling
 - Status code propagation
 - Automatic retry with fallback proxies
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
