@@ -23,12 +23,9 @@ export const USER_FIELDS = gql`
       edges {
         node {
           id
+          status
           group {
             ...GroupFields
-          }
-          membershipInfo {
-            role
-            status
           }
         }
       }
@@ -73,10 +70,7 @@ export const MEMBER_FIELDS = gql`
       edges {
         node {
           id
-          membershipInfo {
-            role
-            status
-          }
+          status
         }
       }
     }
@@ -102,12 +96,9 @@ export const GET_ORGANIZED_EVENTS = gql`
         edges {
           node {
             id
+            status
             group {
               ...GroupFields
-            }
-            membershipInfo {
-              role
-              status
             }
           }
         }
