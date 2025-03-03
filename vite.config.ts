@@ -13,7 +13,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
     optimizeDeps: {
       exclude: ['lucide-react'],
     },
-    base: '/meetup/',
+    base: mode === 'production' ? '/meetup/' : '/',
     build: {
       outDir: 'dist',
       sourcemap: true,
