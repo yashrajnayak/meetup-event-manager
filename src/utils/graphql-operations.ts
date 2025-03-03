@@ -34,9 +34,8 @@ export const EVENT_FIELDS = gql`
     title
     description
     dateTime
-    duration
-    status
     eventType
+    status
     venue {
       id
       name
@@ -51,24 +50,13 @@ export const EVENT_FIELDS = gql`
       id
       name
       urlname
-      description
-      link
       status
       memberships {
         count
       }
     }
     going
-    waiting
     maxTickets
-    fee {
-      amount
-      currency
-    }
-    images {
-      id
-      baseUrl
-    }
   }
 `;
 
@@ -76,7 +64,6 @@ export const MEMBER_FIELDS = gql`
   fragment MemberFields on Member {
     id
     name
-    profileUrl
     joinedAt
     membership {
       role
@@ -88,10 +75,30 @@ export const MEMBER_FIELDS = gql`
 export const GET_SELF = gql`
   query GetSelf {
     self {
-      ...UserFields
+      id
+      name
+      email
+      bio
+      memberships {
+        edges {
+          node {
+            membership {
+              role
+              group {
+                id
+                name
+                urlname
+                status
+                memberships {
+                  count
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
-  ${USER_FIELDS}
 `;
 
 export const GET_ORGANIZED_EVENTS = gql`
@@ -179,12 +186,15 @@ export const GET_EVENT_WAITLIST = gql`
   query GetEventWaitlist($eventId: ID!, $first: Int!, $after: String) {
     event(id: $eventId) {
       id
-      waiting(first: $first, after: $after) {
+      tickets(first: $first, after: $after, status: [WAITLIST]) {
         edges {
           node {
             id
-            name
-            joinedAt
+            member {
+              id
+              name
+              joinedAt
+            }
           }
         }
         pageInfo {
@@ -220,15 +230,17 @@ export const BULK_UPDATE_MEMBER_STATUS = gql`
   mutation BulkUpdateMemberStatus($input: RsvpInput!) {
     rsvp(input: $input) {
       member {
-        ...MemberFields
-        status
+        id
+        name
+        joinedAt
+        membership {
+          role
+        }
       }
       errors {
         message
         code
-        field
       }
     }
   }
-  ${MEMBER_FIELDS}
-`; 
+`;
